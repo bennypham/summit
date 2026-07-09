@@ -80,8 +80,9 @@ export const createSession = mutation({
 });
 
 export const deleteSession = mutation({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
+  args: { serviceKey: v.string(), token: v.string() },
+  handler: async (ctx, { serviceKey, token }) => {
+    requireServiceKey(serviceKey);
     const session = await ctx.db
       .query("sessions")
       .withIndex("by_token", (q) => q.eq("token", token))
