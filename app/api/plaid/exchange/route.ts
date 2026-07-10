@@ -1,3 +1,9 @@
+// Finish Plaid Link: exchange the public_token for an access_token and first sync.
+//
+// The browser gets a public_token from Plaid Link onSuccess — that token is
+// useless without our secret, so it's safe to POST here. We hand it to Convex,
+// which stores the durable access_token and pulls transactions.
+
 import { api } from "@/convex/_generated/api";
 import { authSecret } from "@/lib/auth";
 import { convexServerClient } from "@/lib/convex-server";

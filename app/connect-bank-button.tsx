@@ -1,5 +1,13 @@
 "use client";
 
+// Opens Plaid Link, then exchanges the public_token for a stored bank connection.
+//
+// Sequence:
+// 1. Click → POST /api/plaid/link-token → get linkToken
+// 2. usePlaidLink opens the Plaid modal (Sandbox: First Platypus Bank)
+// 3. onSuccess → POST /api/plaid/exchange with publicToken
+// 4. Reload so the server-rendered dashboard shows the new accounts
+
 import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 
@@ -18,6 +26,7 @@ export function ConnectBankButton() {
         body: JSON.stringify({ publicToken }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Exchange failed");
+      // Full reload: dashboard is a Server Component reading Convex on the server.
       window.location.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to connect");
@@ -30,11 +39,13 @@ export function ConnectBankButton() {
     token: linkToken,
     onSuccess: (public_token) => onSuccess(public_token),
     onExit: () => {
+      // User closed Link without connecting — reset so they can try again.
       setLinkToken(null);
       setBusy(false);
     },
   });
 
+  // Open Link as soon as we have a token and the Plaid script is ready.
   useEffect(() => {
     if (linkToken && ready) open();
   }, [linkToken, ready, open]);

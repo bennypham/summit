@@ -1,3 +1,8 @@
+// GET a short-lived Plaid Link token so the browser can open the Link UI.
+//
+// Flow: browser → this route (session cookie) → Convex action (serviceKey) → Plaid.
+// Plaid secrets never leave Convex; the browser only sees the link_token.
+
 import { api } from "@/convex/_generated/api";
 import { authSecret } from "@/lib/auth";
 import { convexServerClient } from "@/lib/convex-server";

@@ -7,6 +7,7 @@ const usd = new Intl.NumberFormat("en-US", {
 
 type Account = Doc<"accounts"> & { institutionName: string };
 
+/** Presentational account list — data is already fetched server-side in page.tsx. */
 export function Dashboard({
   accounts,
   totalBalance,
@@ -45,6 +46,7 @@ export function Dashboard({
               </p>
             </div>
             <p className="tabular-nums">
+              {/* Credit/loan are liabilities — show a minus for clarity. */}
               {account.type === "credit" || account.type === "loan" ? "−" : ""}
               {usd.format(account.currentBalance)}
             </p>

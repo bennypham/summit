@@ -1,3 +1,6 @@
+// Manual "Refresh now" — same syncAll the daily cron runs.
+// Useful after connecting a bank or when you don't want to wait for the cron.
+
 import { api } from "@/convex/_generated/api";
 import { authSecret } from "@/lib/auth";
 import { convexServerClient } from "@/lib/convex-server";

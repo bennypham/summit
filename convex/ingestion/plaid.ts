@@ -1,3 +1,8 @@
+// Plaid implementation of IngestionAdapter.
+//
+// This file is the only place that imports the `plaid` SDK. Everything else
+// works against the normalized types in ./types so we can swap providers later.
+
 import {
   Configuration,
   CountryCode,
@@ -17,6 +22,8 @@ import type {
 } from "./types";
 
 function plaidClient(): PlaidApi {
+  // These env vars live on the Convex deployment (npx convex env set ...),
+  // not just in Next.js .env.local — actions run on Convex's servers.
   const clientId = process.env.PLAID_CLIENT_ID;
   const secret = process.env.PLAID_SECRET;
   if (!clientId || !secret) {
@@ -41,6 +48,8 @@ function plaidClient(): PlaidApi {
 }
 
 function mapAccountType(account: AccountBase): AccountType {
+  // Collapse Plaid's richer taxonomy into our five Account types.
+  // Loans and credit are liabilities (subtract from net worth).
   if (account.type === "credit") return "credit";
   if (account.type === "loan") return "loan";
   if (account.type === "investment") return "brokerage";
@@ -63,6 +72,8 @@ function normalizeAccount(account: AccountBase): NormalizedAccount {
 }
 
 function isTransfer(txn: Transaction): boolean {
+  // Transfers between your own accounts (and credit-card payments) must not
+  // count as spending — otherwise budgets double-count the same money.
   const primary = txn.personal_finance_category?.primary;
   const detailed = txn.personal_finance_category?.detailed;
   if (primary === "TRANSFER_IN" || primary === "TRANSFER_OUT") return true;
@@ -85,6 +96,7 @@ function normalizeTransaction(txn: Transaction): NormalizedTransaction {
 }
 
 export class PlaidAdapter implements IngestionAdapter {
+  // Step 1 of Link: short-lived token the browser uses to open Plaid Link UI.
   async createLinkToken(userId: string): Promise<string> {
     const client = plaidClient();
     const response = await client.linkTokenCreate({
@@ -93,11 +105,14 @@ export class PlaidAdapter implements IngestionAdapter {
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: "en",
+      // How much history to pull on first sync (max 730; 90 is a good default).
       transactions: { days_requested: 90 },
     });
     return response.data.link_token;
   }
 
+  // Step 2 of Link: trade the one-time public_token for a durable access_token.
+  // The access_token is what we store and use for all future syncs.
   async exchangePublicToken(publicToken: string): Promise<ExchangeResult> {
     const client = plaidClient();
     const exchange = await client.itemPublicTokenExchange({
@@ -122,6 +137,8 @@ export class PlaidAdapter implements IngestionAdapter {
     };
   }
 
+  // Incremental sync. Pass the previous nextCursor (or undefined for first run).
+  // Plaid returns added / modified / removed deltas since that cursor.
   async syncPage(accessToken: string, cursor?: string): Promise<SyncPage> {
     const client = plaidClient();
     const response = await client.transactionsSync({
@@ -141,6 +158,7 @@ export class PlaidAdapter implements IngestionAdapter {
     return {
       added: data.added.map(normalizeTransaction),
       modified: data.modified.map(normalizeTransaction),
+      // SDK types transaction_id as optional; drop undefined to satisfy Convex.
       removedIds: data.removed
         .map((r) => r.transaction_id)
         .filter((id): id is string => id !== undefined),
@@ -152,5 +170,7 @@ export class PlaidAdapter implements IngestionAdapter {
 }
 
 export function createIngestionAdapter(): IngestionAdapter {
+  // Single factory so callers never hard-code PlaidAdapter.
+  // Swap the return value here when adding SimpleFIN.
   return new PlaidAdapter();
 }

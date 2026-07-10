@@ -1,3 +1,9 @@
+// Our Category list vs Plaid's taxonomy.
+//
+// Budgets need a small, stable list we control (Groceries, Dining, …).
+// Plaid sends machine categories like FOOD_AND_DRINK — we map those to ours
+// as defaults. Manual overrides on a Transaction always win (see upsertTransaction).
+
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 
@@ -11,6 +17,7 @@ const DEFAULT_CATEGORIES = [
   "Entertainment",
 ] as const;
 
+/** Plaid personal_finance_category.primary → our Category name. */
 const PLAID_DEFAULT_MAPPINGS: Record<string, string> = {
   FOOD_AND_DRINK: "Dining",
   RENT_AND_UTILITIES: "Rent",
@@ -20,6 +27,7 @@ const PLAID_DEFAULT_MAPPINGS: Record<string, string> = {
   GROCERIES: "Groceries",
 };
 
+/** Idempotent seed — safe to call on every new bank connection. */
 export async function ensureDefaultCategories(ctx: MutationCtx) {
   for (const name of DEFAULT_CATEGORIES) {
     const existing = await ctx.db
@@ -50,6 +58,7 @@ export async function ensureDefaultCategories(ctx: MutationCtx) {
   }
 }
 
+/** Look up our Category for a Plaid primary; fall back to Uncategorized. */
 export async function resolveCategoryId(
   ctx: QueryCtx | MutationCtx,
   plaidCategoryPrimary: string | undefined,

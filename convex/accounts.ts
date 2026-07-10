@@ -20,7 +20,7 @@ export const totalBalance = authedQuery({
   args: {},
   handler: async (ctx) => {
     const accounts = await ctx.db.query("accounts").collect();
-    // Credit and loan balances are money owed, so they subtract from net.
+    // Net worth style: assets add, liabilities (credit + loan) subtract.
     return accounts.reduce((total, a) => {
       if (a.type === "credit" || a.type === "loan") {
         return total - a.currentBalance;

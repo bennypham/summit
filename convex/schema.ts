@@ -17,10 +17,14 @@ export default defineSchema({
     expiresAt: v.number(),
   }).index("by_token", ["token"]),
 
+  // One Plaid login to one Institution. Holds the access_token and sync cursor.
+  // Never delete-and-relink casually — Plaid Trial Items are lifetime-capped.
   items: defineTable({
     plaidItemId: v.string(),
     institutionName: v.string(),
+    /** Durable Plaid secret — server-side only, never sent to the browser. */
     accessToken: v.string(),
+    /** Bookmark for /transactions/sync; undefined = never synced / full pull. */
     syncCursor: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("error")),
     errorMessage: v.optional(v.string()),

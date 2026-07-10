@@ -1,9 +1,17 @@
+// Database writes for Plaid ingestion.
+//
+// These are internalMutation/internalQuery — only callable from other Convex
+// functions (like plaidActions), never from the browser. That keeps access
+// tokens and sync logic off the public API surface.
+
 import { v } from "convex/values";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { ensureDefaultCategories, resolveCategoryId } from "./lib/categories";
 import type { NormalizedAccount, NormalizedTransaction } from "./ingestion/types";
 
+// Validators mirror NormalizedAccount / NormalizedTransaction so actions can
+// pass adapter output straight into mutations with type safety at the boundary.
 const accountValidator = v.object({
   externalAccountId: v.string(),
   name: v.string(),
@@ -31,12 +39,12 @@ const transactionValidator = v.object({
   plaidCategoryPrimary: v.optional(v.string()),
 });
 
+/** Items the cron / Refresh should attempt to sync. */
 export const listSyncableItems = internalQuery({
   args: {},
   handler: async (ctx) => {
     const items = await ctx.db.query("items").collect();
-    // Retry errored Items on cron/refresh — transient Plaid failures must not
-    // permanently strand a connection.
+    // Include "error" so transient Plaid failures get retried automatically.
     return items.filter(
       (item) =>
         (item.status === "active" || item.status === "error") &&
@@ -52,6 +60,10 @@ export const getItem = internalQuery({
   },
 });
 
+/**
+ * After Link succeeds: create the Item (one login to one bank) and its Accounts.
+ * Seeds default Categories the first time any bank is connected.
+ */
 export const completeExchange = internalMutation({
   args: {
     accessToken: v.string(),
@@ -62,6 +74,7 @@ export const completeExchange = internalMutation({
   handler: async (ctx, { accessToken, externalItemId, institutionName, accounts }) => {
     await ensureDefaultCategories(ctx);
 
+    // Guard against double-connecting the same Plaid Item (burns Trial slots).
     const existing = await ctx.db
       .query("items")
       .withIndex("by_plaid_item_id", (q) => q.eq("plaidItemId", externalItemId))
@@ -73,7 +86,7 @@ export const completeExchange = internalMutation({
     const itemId = await ctx.db.insert("items", {
       plaidItemId: externalItemId,
       institutionName,
-      accessToken,
+      accessToken, // Durable secret used for all future syncs — never send to browser.
       status: "active",
       lastSyncedAt: Date.now(),
     });
@@ -95,11 +108,17 @@ export const completeExchange = internalMutation({
   },
 });
 
+/**
+ * Insert or update one transaction.
+ * Key rule: upsert by plaidTransactionId so pending→posted is an update,
+ * not a duplicate row. Manual category overrides are preserved across syncs.
+ */
 async function upsertTransaction(
   ctx: MutationCtx,
   account: { _id: Id<"accounts">; isBalanceOnly: boolean },
   txn: NormalizedTransaction,
 ) {
+  // Investment accounts contribute balance only — skip their activity.
   if (account.isBalanceOnly) return;
 
   const existing = await ctx.db
@@ -109,12 +128,13 @@ async function upsertTransaction(
     )
     .unique();
 
+  // If the user manually set a category, never overwrite it on re-sync.
   const categoryId = existing?.categoryOverridden
     ? existing.categoryId
     : await resolveCategoryId(ctx, txn.plaidCategoryPrimary);
 
   if (existing) {
-    // Pending → posted: same plaidTransactionId, updated amount/date/pending flag.
+    // Pending → posted (or any modification): patch in place.
     await ctx.db.patch(existing._id, {
       date: txn.date,
       description: txn.description,
@@ -139,11 +159,15 @@ async function upsertTransaction(
   });
 }
 
+/** Upsert accounts and write today's balance snapshot (for future net-worth charts). */
 async function upsertAccounts(
   ctx: MutationCtx,
   itemId: Id<"items">,
   accounts: NormalizedAccount[],
 ) {
+  // Empty on intermediate sync pages — balances are only sent on the last page.
+  if (accounts.length === 0) return;
+
   const today = new Date().toISOString().slice(0, 10);
 
   for (const incoming of accounts) {
@@ -156,6 +180,7 @@ async function upsertAccounts(
 
     let accountId = existing?._id;
     if (existing) {
+      // Also refresh type/isBalanceOnly so schema fixes apply on next Refresh.
       await ctx.db.patch(existing._id, {
         name: incoming.name,
         type: incoming.type,
@@ -177,6 +202,8 @@ async function upsertAccounts(
     }
 
     if (!accountId) continue;
+
+    // One snapshot per account per day — overwrite if we sync again today.
     const snapshot = await ctx.db
       .query("balanceSnapshots")
       .withIndex("by_account_and_date", (q) =>
@@ -195,6 +222,10 @@ async function upsertAccounts(
   }
 }
 
+/**
+ * Apply one page of sync deltas to the database, then advance the Item cursor.
+ * Saving the cursor here means a crash mid-pagination can resume next run.
+ */
 export const applySyncPage = internalMutation({
   args: {
     itemId: v.id("items"),
@@ -205,9 +236,10 @@ export const applySyncPage = internalMutation({
     nextCursor: v.string(),
   },
   handler: async (ctx, { itemId, added, modified, removedIds, accounts, nextCursor }) => {
-    // Categories are seeded once in completeExchange; skip the per-page lookups.
+    // Categories are seeded once in completeExchange; no per-page re-seed.
     await upsertAccounts(ctx, itemId, accounts);
 
+    // added + modified both go through the same upsert path.
     for (const txn of [...added, ...modified]) {
       const account = await ctx.db
         .query("accounts")
@@ -219,6 +251,8 @@ export const applySyncPage = internalMutation({
       await upsertTransaction(ctx, account, txn);
     }
 
+    // Plaid sometimes removes a pending txn and adds a new posted one with a
+    // different id — removedIds cleans up the pending row.
     for (const plaidTransactionId of removedIds) {
       const existing = await ctx.db
         .query("transactions")
@@ -233,6 +267,7 @@ export const applySyncPage = internalMutation({
   },
 });
 
+/** Mark an Item active (and clear error) or errored after a sync attempt. */
 export const finishSync = internalMutation({
   args: {
     itemId: v.id("items"),
@@ -242,6 +277,7 @@ export const finishSync = internalMutation({
   handler: async (ctx, { itemId, status, errorMessage }) => {
     await ctx.db.patch(itemId, {
       status,
+      // Clear stale error text when we recover.
       errorMessage: status === "active" ? undefined : errorMessage,
       lastSyncedAt: Date.now(),
     });

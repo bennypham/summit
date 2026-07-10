@@ -1,5 +1,8 @@
 "use client";
 
+// Triggers the same syncAll the daily cron uses, then reloads the dashboard.
+// Also retries Items stuck in "error" status from a previous failed sync.
+
 import { useState } from "react";
 
 export function RefreshButton() {
