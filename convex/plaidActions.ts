@@ -81,7 +81,9 @@ export const syncItem = internalAction({
   args: { itemId: v.id("items") },
   handler: async (ctx, { itemId }) => {
     const item = await ctx.runQuery(internal.plaidInternal.getItem, { itemId });
-    if (!item || item.status !== "active" || !item.accessToken) return;
+    if (!item?.accessToken) return;
+    // Retry both active and errored Items so a transient failure isn't permanent.
+    if (item.status !== "active" && item.status !== "error") return;
 
     try {
       await syncItemById(ctx, itemId, item.accessToken, item.syncCursor);
@@ -99,7 +101,7 @@ export const syncItem = internalAction({
 export const syncAll = internalAction({
   args: {},
   handler: async (ctx) => {
-    const items = await ctx.runQuery(internal.plaidInternal.listActiveItems, {});
+    const items = await ctx.runQuery(internal.plaidInternal.listSyncableItems, {});
     // Isolate failures so one bad Item doesn't skip the rest of the cron run.
     for (const item of items) {
       try {

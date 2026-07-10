@@ -31,11 +31,17 @@ const transactionValidator = v.object({
   plaidCategoryPrimary: v.optional(v.string()),
 });
 
-export const listActiveItems = internalQuery({
+export const listSyncableItems = internalQuery({
   args: {},
   handler: async (ctx) => {
     const items = await ctx.db.query("items").collect();
-    return items.filter((item) => item.status === "active");
+    // Retry errored Items on cron/refresh — transient Plaid failures must not
+    // permanently strand a connection.
+    return items.filter(
+      (item) =>
+        (item.status === "active" || item.status === "error") &&
+        item.accessToken,
+    );
   },
 });
 
@@ -236,7 +242,7 @@ export const finishSync = internalMutation({
   handler: async (ctx, { itemId, status, errorMessage }) => {
     await ctx.db.patch(itemId, {
       status,
-      errorMessage,
+      errorMessage: status === "active" ? undefined : errorMessage,
       lastSyncedAt: Date.now(),
     });
   },
