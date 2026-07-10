@@ -10,6 +10,7 @@
 
 import type * as accounts from "../accounts.js";
 import type * as auth from "../auth.js";
+import type * as budgets from "../budgets.js";
 import type * as crons from "../crons.js";
 import type * as functions from "../functions.js";
 import type * as ingestion_plaid from "../ingestion/plaid.js";
@@ -29,6 +30,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   auth: typeof auth;
+  budgets: typeof budgets;
   crons: typeof crons;
   functions: typeof functions;
   "ingestion/plaid": typeof ingestion_plaid;

@@ -17,6 +17,16 @@ const DEFAULT_CATEGORIES = [
   "Entertainment",
 ] as const;
 
+/** Starter monthly limits so Sandbox spend has something to compare against. */
+const DEFAULT_BUDGETS: Record<string, number> = {
+  Groceries: 500,
+  Dining: 200,
+  Rent: 2000,
+  Transportation: 300,
+  Shopping: 250,
+  Entertainment: 150,
+};
+
 /** Plaid personal_finance_category.primary → our Category name. */
 const PLAID_DEFAULT_MAPPINGS: Record<string, string> = {
   FOOD_AND_DRINK: "Dining",
@@ -55,6 +65,24 @@ export async function ensureDefaultCategories(ctx: MutationCtx) {
       plaidPrimary,
       categoryId: category._id,
     });
+  }
+
+  for (const [name, monthlyLimit] of Object.entries(DEFAULT_BUDGETS)) {
+    const category = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", name))
+      .unique();
+    if (!category) continue;
+    const existing = await ctx.db
+      .query("budgets")
+      .withIndex("by_category", (q) => q.eq("categoryId", category._id))
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("budgets", {
+        categoryId: category._id,
+        monthlyLimit,
+      });
+    }
   }
 }
 

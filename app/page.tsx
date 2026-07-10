@@ -1,4 +1,4 @@
-// Authenticated home: server-fetches accounts from Convex, then renders.
+// Authenticated home: server-fetches accounts + budgets from Convex, then renders.
 // Connect / Refresh are client components that talk to /api/plaid/* and reload.
 // Session token stays in the httpOnly cookie — never handed to browser JS.
 
@@ -16,9 +16,14 @@ export default async function Home() {
   if (!sessionToken) redirect("/login");
 
   const convex = convexServerClient();
-  const [accounts, totalBalance] = await Promise.all([
+
+  // Backfill default Categories/Budgets for Items connected before this feature.
+  await convex.mutation(api.budgets.ensureDefaults, { sessionToken });
+
+  const [accounts, totalBalance, budgetSummary] = await Promise.all([
     convex.query(api.accounts.list, { sessionToken }),
     convex.query(api.accounts.totalBalance, { sessionToken }),
+    convex.query(api.budgets.summary, { sessionToken }),
   ]);
 
   return (
@@ -31,7 +36,12 @@ export default async function Home() {
           <SignOutButton />
         </div>
       </header>
-      <Dashboard accounts={accounts} totalBalance={totalBalance} />
+      <Dashboard
+        accounts={accounts}
+        totalBalance={totalBalance}
+        budgetMonth={budgetSummary.month}
+        budgetCategories={budgetSummary.categories}
+      />
     </main>
   );
 }
