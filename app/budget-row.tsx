@@ -24,7 +24,7 @@ export function BudgetRow({
   mtdSpend,
   remaining,
   percentUsed,
-  transactions,
+  transactions = [],
 }: {
   categoryId: Id<"categories">;
   categoryName: string;
@@ -32,7 +32,7 @@ export function BudgetRow({
   mtdSpend: number;
   remaining: number;
   percentUsed: number;
-  transactions: SpendTransaction[];
+  transactions?: SpendTransaction[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);

@@ -91,7 +91,11 @@ export function Dashboard({
           </p>
         ) : (
           budgetCategories.map((row) => (
-            <BudgetRow key={row.categoryId} {...row} />
+            <BudgetRow
+              key={row.categoryId}
+              {...row}
+              transactions={row.transactions ?? []}
+            />
           ))
         )}
       </section>
