@@ -9,6 +9,14 @@ const usd = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
+type SpendTransaction = {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  accountName: string;
+};
+
 export function BudgetRow({
   categoryId,
   categoryName,
@@ -16,6 +24,7 @@ export function BudgetRow({
   mtdSpend,
   remaining,
   percentUsed,
+  transactions,
 }: {
   categoryId: Id<"categories">;
   categoryName: string;
@@ -23,8 +32,10 @@ export function BudgetRow({
   mtdSpend: number;
   remaining: number;
   percentUsed: number;
+  transactions: SpendTransaction[];
 }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(monthlyLimit));
   const [pending, startTransition] = useTransition();
@@ -35,15 +46,15 @@ export function BudgetRow({
 
   async function save() {
     setError(null);
-    const monthlyLimit = Number(draft);
-    if (!Number.isFinite(monthlyLimit) || monthlyLimit < 0) {
+    const nextLimit = Number(draft);
+    if (!Number.isFinite(nextLimit) || nextLimit < 0) {
       setError("Enter a valid amount");
       return;
     }
     const res = await fetch("/api/budgets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryId, monthlyLimit }),
+      body: JSON.stringify({ categoryId, monthlyLimit: nextLimit }),
     });
     if (!res.ok) {
       setError("Could not save budget");
@@ -56,9 +67,35 @@ export function BudgetRow({
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="font-medium">{categoryName}</p>
-        <p className="text-sm tabular-nums text-zinc-500">
-          {usd.format(mtdSpend)}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 items-center gap-2 text-left font-medium"
+          aria-expanded={open}
+        >
+          <span
+            className="inline-block shrink-0 text-zinc-400 transition-transform"
+            style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+            aria-hidden
+          >
+            ▸
+          </span>
+          <span className="truncate">{categoryName}</span>
+          {transactions.length > 0 && (
+            <span className="shrink-0 text-xs font-normal text-zinc-400">
+              {transactions.length} txn{transactions.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </button>
+
+        <p className="shrink-0 text-sm tabular-nums text-zinc-500">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="tabular-nums"
+          >
+            {usd.format(mtdSpend)}
+          </button>
           <span className="text-zinc-400"> / </span>
           {editing ? (
             <span className="inline-flex items-center gap-1">
@@ -107,24 +144,38 @@ export function BudgetRow({
         </p>
       </div>
 
-      <div
-        className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-900"
-        role="progressbar"
-        aria-valuenow={Math.round(percentUsed)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${categoryName} budget used`}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="block w-full text-left"
+        aria-label={`${open ? "Hide" : "Show"} ${categoryName} transactions`}
       >
         <div
-          className={`h-full rounded-full transition-[width] ${
-            over ? "bg-red-500" : "bg-zinc-800 dark:bg-zinc-200"
-          }`}
-          style={{ width: `${barWidth}%` }}
-        />
-      </div>
+          className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-900"
+          role="progressbar"
+          aria-valuenow={Math.round(percentUsed)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${categoryName} budget used`}
+        >
+          <div
+            className={`h-full rounded-full transition-[width] ${
+              over ? "bg-red-500" : "bg-zinc-800 dark:bg-zinc-200"
+            }`}
+            style={{ width: `${barWidth}%` }}
+          />
+        </div>
+      </button>
 
       <div className="flex items-center justify-between text-xs text-zinc-500">
-        <span>{Math.round(percentUsed)}% used</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="hover:text-zinc-700 dark:hover:text-zinc-300"
+        >
+          {Math.round(percentUsed)}% used
+          {open ? " · hide" : " · show txns"}
+        </button>
         <span className={over ? "text-red-600 dark:text-red-400" : undefined}>
           {over
             ? `${usd.format(-remaining)} over`
@@ -132,6 +183,31 @@ export function BudgetRow({
         </span>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
+
+      {open && (
+        <ul className="mt-1 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-900">
+          {transactions.length === 0 ? (
+            <li className="text-sm text-zinc-500">
+              No month-to-date spend in this category yet.
+            </li>
+          ) : (
+            transactions.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-start justify-between gap-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{t.description}</p>
+                  <p className="text-xs text-zinc-500">
+                    {t.date} · {t.accountName}
+                  </p>
+                </div>
+                <p className="shrink-0 tabular-nums">{usd.format(t.amount)}</p>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
     </div>
   );
 }

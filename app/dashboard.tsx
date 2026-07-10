@@ -15,6 +15,13 @@ type BudgetCategory = {
   mtdSpend: number;
   remaining: number;
   percentUsed: number;
+  transactions: {
+    id: string;
+    date: string;
+    description: string;
+    amount: number;
+    accountName: string;
+  }[];
 };
 
 /** Presentational dashboard — data is already fetched server-side in page.tsx. */
@@ -73,7 +80,9 @@ export function Dashboard({
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-sm font-medium text-zinc-500">Budgets</h2>
-          <p className="text-xs text-zinc-400">{monthLabel} · month to date</p>
+          <p className="text-xs text-zinc-400">
+            {monthLabel} · month to date · click a category to see transactions
+          </p>
         </div>
         {budgetCategories.length === 0 ? (
           <p className="text-zinc-500">
