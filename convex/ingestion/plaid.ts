@@ -131,15 +131,20 @@ export class PlaidAdapter implements IngestionAdapter {
     });
     const data = response.data;
 
-    const accountsResponse = await client.accountsGet({
-      access_token: accessToken,
-    });
+    // Balances only need one snapshot per sync run — fetch on the final page.
+    const accounts = data.has_more
+      ? []
+      : (
+          await client.accountsGet({ access_token: accessToken })
+        ).data.accounts.map(normalizeAccount);
 
     return {
       added: data.added.map(normalizeTransaction),
       modified: data.modified.map(normalizeTransaction),
-      removedIds: data.removed.map((r) => r.transaction_id),
-      accounts: accountsResponse.data.accounts.map(normalizeAccount),
+      removedIds: data.removed
+        .map((r) => r.transaction_id)
+        .filter((id): id is string => id !== undefined),
+      accounts,
       nextCursor: data.next_cursor,
       hasMore: data.has_more,
     };

@@ -199,7 +199,7 @@ export const applySyncPage = internalMutation({
     nextCursor: v.string(),
   },
   handler: async (ctx, { itemId, added, modified, removedIds, accounts, nextCursor }) => {
-    await ensureDefaultCategories(ctx);
+    // Categories are seeded once in completeExchange; skip the per-page lookups.
     await upsertAccounts(ctx, itemId, accounts);
 
     for (const txn of [...added, ...modified]) {

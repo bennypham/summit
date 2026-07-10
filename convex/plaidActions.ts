@@ -100,8 +100,13 @@ export const syncAll = internalAction({
   args: {},
   handler: async (ctx) => {
     const items = await ctx.runQuery(internal.plaidInternal.listActiveItems, {});
+    // Isolate failures so one bad Item doesn't skip the rest of the cron run.
     for (const item of items) {
-      await ctx.runAction(internal.plaidActions.syncItem, { itemId: item._id });
+      try {
+        await ctx.runAction(internal.plaidActions.syncItem, { itemId: item._id });
+      } catch (error) {
+        console.error(`Sync failed for item ${item._id}:`, error);
+      }
     }
   },
 });
