@@ -17,10 +17,17 @@ export default defineSchema({
     expiresAt: v.number(),
   }).index("by_token", ["token"]),
 
+  // One Plaid login to one Institution. Holds the access_token and sync cursor.
+  // Never delete-and-relink casually — Plaid Trial Items are lifetime-capped.
   items: defineTable({
     plaidItemId: v.string(),
     institutionName: v.string(),
+    /** Durable Plaid secret — server-side only, never sent to the browser. */
+    accessToken: v.string(),
+    /** Bookmark for /transactions/sync; undefined = never synced / full pull. */
+    syncCursor: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("error")),
+    errorMessage: v.optional(v.string()),
     lastSyncedAt: v.optional(v.number()),
   }).index("by_plaid_item_id", ["plaidItemId"]),
 
@@ -32,6 +39,7 @@ export default defineSchema({
       v.literal("checking"),
       v.literal("savings"),
       v.literal("credit"),
+      v.literal("loan"),
       v.literal("brokerage"),
     ),
     mask: v.optional(v.string()),
@@ -45,7 +53,13 @@ export default defineSchema({
 
   categories: defineTable({
     name: v.string(),
-  }),
+  }).index("by_name", ["name"]),
+
+  // Maps Plaid personal_finance_category.primary → user Category.
+  plaidCategoryMappings: defineTable({
+    plaidPrimary: v.string(),
+    categoryId: v.id("categories"),
+  }).index("by_plaid_primary", ["plaidPrimary"]),
 
   transactions: defineTable({
     accountId: v.id("accounts"),

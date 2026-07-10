@@ -1,12 +1,16 @@
+// Authenticated home: server-fetches accounts from Convex, then renders.
+// Connect / Refresh are client components that talk to /api/plaid/* and reload.
+// Session token stays in the httpOnly cookie — never handed to browser JS.
+
 import { redirect } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { convexServerClient } from "@/lib/convex-server";
 import { getAuthedSessionToken } from "@/lib/session-server";
 import { Dashboard } from "./dashboard";
+import { ConnectBankButton } from "./connect-bank-button";
+import { RefreshButton } from "./refresh-button";
 import { SignOutButton } from "./sign-out-button";
 
-// Smoke-test page: proves passkey session -> server-side Convex -> data.
-// The session token stays in the httpOnly cookie; it never reaches browser JS.
 export default async function Home() {
   const sessionToken = await getAuthedSessionToken();
   if (!sessionToken) redirect("/login");
@@ -19,9 +23,13 @@ export default async function Home() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Summit</h1>
-        <SignOutButton />
+        <div className="flex items-center gap-2">
+          <ConnectBankButton />
+          <RefreshButton />
+          <SignOutButton />
+        </div>
       </header>
       <Dashboard accounts={accounts} totalBalance={totalBalance} />
     </main>
