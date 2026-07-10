@@ -72,6 +72,8 @@ export default defineSchema({
     categoryId: v.optional(v.id("categories")),
     // Manual category overrides must survive re-syncs (ADR-0001).
     categoryOverridden: v.boolean(),
+    // Manual description overrides must survive re-syncs.
+    descriptionOverridden: v.optional(v.boolean()),
     isTransfer: v.boolean(),
   })
     .index("by_date", ["date"])

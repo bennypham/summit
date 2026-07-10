@@ -83,17 +83,17 @@ export function Dashboard({
 
   return (
     <>
-      <section className="flex flex-col gap-1">
-        <p className="text-sm text-zinc-500">Total balance</p>
-        <p className="text-4xl font-semibold tabular-nums">
+      <section className="flex flex-col gap-1 rounded-2xl bg-ink p-[18px] text-surface">
+        <p className="text-xs text-[#A9A498]">Total balance</p>
+        <p className="font-mono text-[28px] font-extrabold tracking-[-0.02em] tabular-nums">
           {usd.format(totalBalance)}
         </p>
         {syncLabel && (
           <p
             className={`text-xs ${
               items.some((i) => i.status === "error")
-                ? "text-red-600 dark:text-red-400"
-                : "text-zinc-400"
+                ? "text-red-400"
+                : "text-[#A9A498]"
             }`}
           >
             {syncLabel}
@@ -103,13 +103,15 @@ export function Dashboard({
 
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-medium text-zinc-500">Accounts</h2>
-          <p className="text-xs text-zinc-400">
+          <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-faint">
+            Accounts
+          </h2>
+          <p className="text-xs text-muted">
             click an Account for month-to-date activity
           </p>
         </div>
         {accounts.length === 0 && (
-          <p className="text-zinc-500">
+          <p className="text-muted">
             No Accounts yet. Connect a Sandbox Institution above (try First
             Platypus Bank).
           </p>
@@ -121,13 +123,13 @@ export function Dashboard({
 
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-medium text-zinc-500">Budgets</h2>
-          <p className="text-xs text-zinc-400">
-            {monthLabel} · month to date
-          </p>
+          <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-faint">
+            Budgets
+          </h2>
+          <p className="text-xs text-muted">{monthLabel} · month to date</p>
         </div>
         {(budgetCategories.length > 0 || unbudgetedCategories.length > 0) && (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             {usd.format(budgetTotals.budgetedSpend)} of{" "}
             {usd.format(budgetTotals.monthlyLimit)} budgeted
             {budgetTotals.unbudgetedSpend > 0 && (
@@ -139,7 +141,7 @@ export function Dashboard({
           </p>
         )}
         {budgetCategories.length === 0 && unbudgetedCategories.length === 0 ? (
-          <p className="text-zinc-500">
+          <p className="text-muted">
             No budgets yet. Connect a Sandbox Institution and hit Refresh to
             seed default Category budgets.
           </p>

@@ -13,6 +13,7 @@ const DEFAULT_CATEGORIES = [
   "Dining",
   "Rent",
   "Transportation",
+  "Subscriptions",
   "Shopping",
   "Entertainment",
 ] as const;
@@ -23,6 +24,7 @@ const DEFAULT_BUDGETS: Record<string, number> = {
   Dining: 200,
   Rent: 2000,
   Transportation: 300,
+  Subscriptions: 100,
   Shopping: 250,
   Entertainment: 150,
 };
@@ -35,6 +37,7 @@ const PLAID_DEFAULT_MAPPINGS: Record<string, string> = {
   GENERAL_MERCHANDISE: "Shopping",
   ENTERTAINMENT: "Entertainment",
   GROCERIES: "Groceries",
+  GENERAL_SERVICES: "Subscriptions",
 };
 
 /** First match by name — seed used to insert duplicates, so avoid .unique(). */

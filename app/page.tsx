@@ -6,10 +6,7 @@ import { redirect } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { convexServerClient } from "@/lib/convex-server";
 import { getAuthedSessionToken } from "@/lib/session-server";
-import { Dashboard } from "./dashboard";
-import { ConnectBankButton } from "./connect-bank-button";
-import { RefreshButton } from "./refresh-button";
-import { SignOutButton } from "./sign-out-button";
+import { ActivityWorkspace } from "./activity-workspace";
 
 export default async function Home() {
   const sessionToken = await getAuthedSessionToken();
@@ -20,32 +17,34 @@ export default async function Home() {
   // Backfill default Categories/Budgets for Items connected before this feature.
   await convex.mutation(api.budgets.ensureDefaults, { sessionToken });
 
-  const [accounts, totalBalance, items, budgetSummary] = await Promise.all([
+  const [
+    accounts,
+    totalBalance,
+    items,
+    budgetSummary,
+    activity,
+    categories,
+  ] = await Promise.all([
     convex.query(api.accounts.list, { sessionToken }),
     convex.query(api.accounts.totalBalance, { sessionToken }),
     convex.query(api.items.list, { sessionToken }),
     convex.query(api.budgets.summary, { sessionToken }),
+    convex.query(api.transactions.listActivity, { sessionToken }),
+    convex.query(api.categories.list, { sessionToken }),
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Summit</h1>
-        <div className="flex items-center gap-2">
-          <ConnectBankButton />
-          <RefreshButton />
-          <SignOutButton />
-        </div>
-      </header>
-      <Dashboard
-        accounts={accounts}
-        totalBalance={totalBalance}
-        items={items}
-        budgetMonth={budgetSummary.month}
-        budgetCategories={budgetSummary.categories}
-        unbudgetedCategories={budgetSummary.unbudgeted}
-        budgetTotals={budgetSummary.totals}
-      />
-    </main>
+    <ActivityWorkspace
+      accounts={accounts}
+      totalBalance={totalBalance}
+      items={items}
+      budgetMonth={budgetSummary.month}
+      budgetCategories={budgetSummary.categories}
+      unbudgetedCategories={budgetSummary.unbudgeted}
+      budgetTotals={budgetSummary.totals}
+      activityMonth={activity.month}
+      transactions={activity.transactions}
+      categories={categories}
+    />
   );
 }

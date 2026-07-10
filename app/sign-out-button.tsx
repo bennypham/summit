@@ -9,7 +9,7 @@ export function SignOutButton() {
   return (
     <button
       onClick={signOut}
-      className="rounded-full border border-zinc-300 px-4 py-2 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+      className="w-full rounded-full border border-[#3d4454] px-3 py-2 text-sm text-[#c5cad4] transition-colors hover:bg-[#252932]"
     >
       Sign out
     </button>

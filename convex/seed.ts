@@ -136,6 +136,7 @@ export const run = internalMutation({
         pending: false,
         categoryId: t.categoryId,
         categoryOverridden: false,
+        descriptionOverridden: false,
         isTransfer: false,
       });
     }
@@ -149,6 +150,7 @@ export const run = internalMutation({
       pending: false,
       categoryId: undefined,
       categoryOverridden: false,
+      descriptionOverridden: false,
       isTransfer: true,
     });
     await ctx.db.insert("transactions", {
@@ -160,6 +162,7 @@ export const run = internalMutation({
       pending: false,
       categoryId: undefined,
       categoryOverridden: false,
+      descriptionOverridden: false,
       isTransfer: true,
     });
 
