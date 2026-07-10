@@ -37,13 +37,68 @@ const PLAID_DEFAULT_MAPPINGS: Record<string, string> = {
   GROCERIES: "Groceries",
 };
 
+/** First match by name — seed used to insert duplicates, so avoid .unique(). */
+async function categoryByName(ctx: QueryCtx | MutationCtx, name: string) {
+  return await ctx.db
+    .query("categories")
+    .withIndex("by_name", (q) => q.eq("name", name))
+    .first();
+}
+
+/**
+ * Collapse duplicate Category names (from repeated seed runs) onto one row.
+ * Re-points Transactions / Budgets / mappings, then deletes the extras.
+ */
+export async function dedupeCategories(ctx: MutationCtx) {
+  const all = await ctx.db.query("categories").collect();
+  const byName = new Map<string, typeof all>();
+  for (const c of all) {
+    const list = byName.get(c.name) ?? [];
+    list.push(c);
+    byName.set(c.name, list);
+  }
+
+  for (const [, group] of byName) {
+    if (group.length < 2) continue;
+    const [keep, ...dupes] = group;
+    const dupeIds = new Set(dupes.map((d) => d._id));
+
+    for (const t of await ctx.db.query("transactions").collect()) {
+      if (t.categoryId && dupeIds.has(t.categoryId)) {
+        await ctx.db.patch(t._id, { categoryId: keep._id });
+      }
+    }
+
+    const keepBudget = await ctx.db
+      .query("budgets")
+      .withIndex("by_category", (q) => q.eq("categoryId", keep._id))
+      .first();
+    for (const dupe of dupes) {
+      const budget = await ctx.db
+        .query("budgets")
+        .withIndex("by_category", (q) => q.eq("categoryId", dupe._id))
+        .first();
+      if (!budget) continue;
+      if (keepBudget) await ctx.db.delete(budget._id);
+      else await ctx.db.patch(budget._id, { categoryId: keep._id });
+    }
+
+    for (const m of await ctx.db.query("plaidCategoryMappings").collect()) {
+      if (dupeIds.has(m.categoryId)) {
+        await ctx.db.patch(m._id, { categoryId: keep._id });
+      }
+    }
+
+    for (const dupe of dupes) await ctx.db.delete(dupe._id);
+  }
+}
+
 /** Idempotent seed — safe to call on every new bank connection. */
 export async function ensureDefaultCategories(ctx: MutationCtx) {
+  await dedupeCategories(ctx);
+
   for (const name of DEFAULT_CATEGORIES) {
-    const existing = await ctx.db
-      .query("categories")
-      .withIndex("by_name", (q) => q.eq("name", name))
-      .unique();
+    const existing = await categoryByName(ctx, name);
     if (!existing) await ctx.db.insert("categories", { name });
   }
 
@@ -53,13 +108,10 @@ export async function ensureDefaultCategories(ctx: MutationCtx) {
     const mapping = await ctx.db
       .query("plaidCategoryMappings")
       .withIndex("by_plaid_primary", (q) => q.eq("plaidPrimary", plaidPrimary))
-      .unique();
+      .first();
     if (mapping) continue;
 
-    const category = await ctx.db
-      .query("categories")
-      .withIndex("by_name", (q) => q.eq("name", categoryName))
-      .unique();
+    const category = await categoryByName(ctx, categoryName);
     if (!category) continue;
     await ctx.db.insert("plaidCategoryMappings", {
       plaidPrimary,
@@ -68,15 +120,12 @@ export async function ensureDefaultCategories(ctx: MutationCtx) {
   }
 
   for (const [name, monthlyLimit] of Object.entries(DEFAULT_BUDGETS)) {
-    const category = await ctx.db
-      .query("categories")
-      .withIndex("by_name", (q) => q.eq("name", name))
-      .unique();
+    const category = await categoryByName(ctx, name);
     if (!category) continue;
     const existing = await ctx.db
       .query("budgets")
       .withIndex("by_category", (q) => q.eq("categoryId", category._id))
-      .unique();
+      .first();
     if (!existing) {
       await ctx.db.insert("budgets", {
         categoryId: category._id,
@@ -97,12 +146,9 @@ export async function resolveCategoryId(
     .withIndex("by_plaid_primary", (q) =>
       q.eq("plaidPrimary", plaidCategoryPrimary),
     )
-    .unique();
+    .first();
   if (mapping) return mapping.categoryId;
 
-  const uncategorized = await ctx.db
-    .query("categories")
-    .withIndex("by_name", (q) => q.eq("name", "Uncategorized"))
-    .unique();
+  const uncategorized = await categoryByName(ctx, "Uncategorized");
   return uncategorized?._id;
 }

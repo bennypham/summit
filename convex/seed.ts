@@ -1,4 +1,5 @@
 import { internalMutation } from "./_generated/server";
+import { ensureDefaultCategories } from "./lib/categories";
 
 // Dev utility: wipe auth state to redo first-run passkey setup.
 // Run with: npx convex run seed:resetAuth
@@ -15,7 +16,8 @@ export const resetAuth = internalMutation({
   },
 });
 
-// Clears all Plaid-linked data. Run with: npx convex run seed:clearFinanceData
+// Clears Plaid-linked data + categories/budgets so re-seed stays clean.
+// Run with: npx convex run seed:clearFinanceData
 export const clearFinanceData = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -31,6 +33,15 @@ export const clearFinanceData = internalMutation({
     for (const i of await ctx.db.query("items").collect()) {
       await ctx.db.delete(i._id);
     }
+    for (const b of await ctx.db.query("budgets").collect()) {
+      await ctx.db.delete(b._id);
+    }
+    for (const m of await ctx.db.query("plaidCategoryMappings").collect()) {
+      await ctx.db.delete(m._id);
+    }
+    for (const c of await ctx.db.query("categories").collect()) {
+      await ctx.db.delete(c._id);
+    }
     return "Finance data cleared";
   },
 });
@@ -42,6 +53,8 @@ export const run = internalMutation({
   handler: async (ctx) => {
     const existing = await ctx.db.query("items").first();
     if (existing) throw new Error("Already seeded — clear tables first");
+
+    await ensureDefaultCategories(ctx);
 
     const itemId = await ctx.db.insert("items", {
       plaidItemId: "seed-item-1",
@@ -89,18 +102,28 @@ export const run = internalMutation({
       isBalanceOnly: true,
     });
 
-    const groceries = await ctx.db.insert("categories", { name: "Groceries" });
-    const dining = await ctx.db.insert("categories", { name: "Dining" });
-    const rent = await ctx.db.insert("categories", { name: "Rent" });
-    await ctx.db.insert("budgets", { categoryId: groceries, monthlyLimit: 500 });
-    await ctx.db.insert("budgets", { categoryId: dining, monthlyLimit: 200 });
+    const groceries = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Groceries"))
+      .first();
+    const dining = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Dining"))
+      .first();
+    const rent = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Rent"))
+      .first();
+    if (!groceries || !dining || !rent) {
+      throw new Error("Default categories missing after ensureDefaultCategories");
+    }
 
     const month = new Date().toISOString().slice(0, 8); // "YYYY-MM-"
     const txns = [
-      { accountId: checking, date: `${month}01`, description: "Apartment Rent", amount: 1850, categoryId: rent },
-      { accountId: checking, date: `${month}03`, description: "Trader Joe's", amount: 84.12, categoryId: groceries },
-      { accountId: credit, date: `${month}04`, description: "Chipotle", amount: 13.45, categoryId: dining },
-      { accountId: credit, date: `${month}05`, description: "Whole Foods", amount: 56.9, categoryId: groceries },
+      { accountId: checking, date: `${month}01`, description: "Apartment Rent", amount: 1850, categoryId: rent._id },
+      { accountId: checking, date: `${month}03`, description: "Trader Joe's", amount: 84.12, categoryId: groceries._id },
+      { accountId: credit, date: `${month}04`, description: "Chipotle", amount: 13.45, categoryId: dining._id },
+      { accountId: credit, date: `${month}05`, description: "Whole Foods", amount: 56.9, categoryId: groceries._id },
       { accountId: checking, date: `${month}06`, description: "Paycheck", amount: -3200, categoryId: undefined },
     ];
     for (const [i, t] of txns.entries()) {

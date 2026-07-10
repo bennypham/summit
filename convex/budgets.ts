@@ -78,7 +78,7 @@ export const setBudget = authedMutation({
     const existing = await ctx.db
       .query("budgets")
       .withIndex("by_category", (q) => q.eq("categoryId", categoryId))
-      .unique();
+      .first();
 
     if (existing) {
       await ctx.db.patch(existing._id, { monthlyLimit });
