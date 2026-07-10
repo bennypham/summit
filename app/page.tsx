@@ -20,9 +20,10 @@ export default async function Home() {
   // Backfill default Categories/Budgets for Items connected before this feature.
   await convex.mutation(api.budgets.ensureDefaults, { sessionToken });
 
-  const [accounts, totalBalance, budgetSummary] = await Promise.all([
+  const [accounts, totalBalance, items, budgetSummary] = await Promise.all([
     convex.query(api.accounts.list, { sessionToken }),
     convex.query(api.accounts.totalBalance, { sessionToken }),
+    convex.query(api.items.list, { sessionToken }),
     convex.query(api.budgets.summary, { sessionToken }),
   ]);
 
@@ -39,8 +40,11 @@ export default async function Home() {
       <Dashboard
         accounts={accounts}
         totalBalance={totalBalance}
+        items={items}
         budgetMonth={budgetSummary.month}
         budgetCategories={budgetSummary.categories}
+        unbudgetedCategories={budgetSummary.unbudgeted}
+        budgetTotals={budgetSummary.totals}
       />
     </main>
   );

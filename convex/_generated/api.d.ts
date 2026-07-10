@@ -15,6 +15,7 @@ import type * as crons from "../crons.js";
 import type * as functions from "../functions.js";
 import type * as ingestion_plaid from "../ingestion/plaid.js";
 import type * as ingestion_types from "../ingestion/types.js";
+import type * as items from "../items.js";
 import type * as lib_categories from "../lib/categories.js";
 import type * as lib_session from "../lib/session.js";
 import type * as plaidActions from "../plaidActions.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   "ingestion/plaid": typeof ingestion_plaid;
   "ingestion/types": typeof ingestion_types;
+  items: typeof items;
   "lib/categories": typeof lib_categories;
   "lib/session": typeof lib_session;
   plaidActions: typeof plaidActions;

@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./functions";
 import { ensureDefaultCategories } from "./lib/categories";
 
@@ -14,6 +15,7 @@ export const ensureDefaults = authedMutation({
  * Budget vs month-to-date spend per Category.
  * Spend rules: current calendar month, exclude Transfers, pending, and income (amount ≤ 0).
  * Each row includes the Transactions that make up mtdSpend so the UI can expand them.
+ * Categories with spend but no Budget (e.g. Uncategorized) are returned separately.
  */
 export const summary = authedQuery({
   args: {},
@@ -66,11 +68,13 @@ export const summary = authedQuery({
       spendByCategory.set(key, entry);
     }
 
-    const rows = budgets.map((b) => {
+    const budgetedIds = new Set(budgets.map((b) => b.categoryId as string));
+
+    const categoriesWithBudgets = budgets.map((b) => {
       const spend = spendByCategory.get(b.categoryId);
       const mtdSpend = spend?.total ?? 0;
-      const txns = (spend?.transactions ?? []).sort((a, b) =>
-        b.date.localeCompare(a.date),
+      const txns = (spend?.transactions ?? []).sort((a, c) =>
+        c.date.localeCompare(a.date),
       );
       return {
         categoryId: b.categoryId,
@@ -84,9 +88,54 @@ export const summary = authedQuery({
       };
     });
 
-    rows.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+    categoriesWithBudgets.sort((a, b) =>
+      a.categoryName.localeCompare(b.categoryName),
+    );
 
-    return { month, categories: rows };
+    // Spend in Categories that have no Budget (common for Uncategorized in Sandbox).
+    const unbudgeted: {
+      categoryId: string;
+      categoryName: string;
+      mtdSpend: number;
+      transactions: SpendTxn[];
+    }[] = [];
+
+    for (const [key, spend] of spendByCategory) {
+      if (budgetedIds.has(key)) continue;
+      unbudgeted.push({
+        categoryId: key,
+        categoryName:
+          key === "uncategorized"
+            ? "Uncategorized"
+            : (nameById.get(key as Id<"categories">) ?? "Unknown"),
+        mtdSpend: spend.total,
+        transactions: spend.transactions.sort((a, b) =>
+          b.date.localeCompare(a.date),
+        ),
+      });
+    }
+    unbudgeted.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+
+    const totalLimit = categoriesWithBudgets.reduce(
+      (sum, c) => sum + c.monthlyLimit,
+      0,
+    );
+    const totalSpend = categoriesWithBudgets.reduce(
+      (sum, c) => sum + c.mtdSpend,
+      0,
+    );
+    const unbudgetedSpend = unbudgeted.reduce((sum, c) => sum + c.mtdSpend, 0);
+
+    return {
+      month,
+      categories: categoriesWithBudgets,
+      unbudgeted,
+      totals: {
+        monthlyLimit: totalLimit,
+        budgetedSpend: totalSpend,
+        unbudgetedSpend,
+      },
+    };
   },
 });
 
