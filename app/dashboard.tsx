@@ -27,10 +27,8 @@ export function Dashboard({
         <h2 className="text-sm font-medium text-zinc-500">Accounts</h2>
         {accounts.length === 0 && (
           <p className="text-zinc-500">
-            No accounts yet. Run the seed script:{" "}
-            <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">
-              npx convex run seed:run
-            </code>
+            No accounts yet. Connect a Sandbox institution with the button above
+            (try First Platypus Bank).
           </p>
         )}
         {accounts.map((account) => (
@@ -47,7 +45,7 @@ export function Dashboard({
               </p>
             </div>
             <p className="tabular-nums">
-              {account.type === "credit" ? "−" : ""}
+              {account.type === "credit" || account.type === "loan" ? "−" : ""}
               {usd.format(account.currentBalance)}
             </p>
           </div>

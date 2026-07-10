@@ -15,8 +15,28 @@ export const resetAuth = internalMutation({
   },
 });
 
-// Fake data to prove the plumbing before Plaid exists (PR 2 replaces this
-// as the data source). Run with: npx convex run seed:run
+// Clears all Plaid-linked data. Run with: npx convex run seed:clearFinanceData
+export const clearFinanceData = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    for (const t of await ctx.db.query("transactions").collect()) {
+      await ctx.db.delete(t._id);
+    }
+    for (const b of await ctx.db.query("balanceSnapshots").collect()) {
+      await ctx.db.delete(b._id);
+    }
+    for (const a of await ctx.db.query("accounts").collect()) {
+      await ctx.db.delete(a._id);
+    }
+    for (const i of await ctx.db.query("items").collect()) {
+      await ctx.db.delete(i._id);
+    }
+    return "Finance data cleared";
+  },
+});
+
+// Fake data to prove the plumbing before Plaid exists.
+// Run with: npx convex run seed:run
 export const run = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -26,6 +46,7 @@ export const run = internalMutation({
     const itemId = await ctx.db.insert("items", {
       plaidItemId: "seed-item-1",
       institutionName: "Sandbox Bank",
+      accessToken: "seed-access-token",
       status: "active",
       lastSyncedAt: Date.now(),
     });
