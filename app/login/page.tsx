@@ -70,11 +70,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-zinc-50 px-6 dark:bg-black">
-      <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
-        Summit
-      </h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-paper px-6">
+      <h1 className="text-title font-bold tracking-title text-ink">Summit</h1>
+      <p className="text-body text-muted">
         {hasPasskey === undefined
           ? "Loading…"
           : hasPasskey
@@ -85,12 +83,12 @@ export default function LoginPage() {
         <button
           onClick={hasPasskey ? signIn : register}
           disabled={busy}
-          className="rounded-full bg-black px-6 py-3 font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-300"
+          className="rounded-full bg-accent px-6 py-3 text-body font-bold text-surface shadow-accent transition-colors hover:bg-accent/90 disabled:opacity-50"
         >
           {busy ? "Waiting…" : hasPasskey ? "Sign in" : "Set up passkey"}
         </button>
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-caption text-danger">{error}</p>}
     </main>
   );
 }

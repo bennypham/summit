@@ -73,16 +73,16 @@ export function BudgetRow({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-surface px-4 py-3 shadow-sm">
       <div className="flex items-baseline justify-between gap-3">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex min-w-0 items-center gap-2 text-left font-medium"
+          className="flex min-w-0 items-center gap-2 text-left font-medium text-ink"
           aria-expanded={open}
         >
           <span
-            className="inline-block shrink-0 text-zinc-400 transition-transform"
+            className="inline-block shrink-0 text-faint transition-transform"
             style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
             aria-hidden
           >
@@ -90,13 +90,13 @@ export function BudgetRow({
           </span>
           <span className="truncate">{categoryName}</span>
           {transactions.length > 0 && (
-            <span className="shrink-0 text-xs font-normal text-zinc-400">
+            <span className="shrink-0 text-caption font-normal text-subtle">
               {transactions.length}
             </span>
           )}
         </button>
 
-        <p className="shrink-0 text-sm tabular-nums text-zinc-500">
+        <p className="shrink-0 text-caption tabular-nums text-muted">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -106,17 +106,17 @@ export function BudgetRow({
           </button>
           {hasBudget && (
             <>
-              <span className="text-zinc-400"> / </span>
+              <span className="text-subtle"> / </span>
               {editing ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="text-zinc-400">$</span>
+                  <span className="text-subtle">$</span>
                   <input
                     type="number"
                     min={0}
                     step={1}
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    className="w-20 rounded border border-zinc-300 bg-transparent px-1.5 py-0.5 text-zinc-900 tabular-nums dark:border-zinc-700 dark:text-zinc-100"
+                    className="w-20 rounded-sm border border-border-strong bg-field px-1.5 py-0.5 text-ink tabular-nums"
                     disabled={pending}
                     autoFocus
                     onKeyDown={(e) => {
@@ -132,7 +132,7 @@ export function BudgetRow({
                     type="button"
                     onClick={() => void save()}
                     disabled={pending}
-                    className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                    className="text-caption font-medium text-body underline-offset-2 hover:underline"
                   >
                     Save
                   </button>
@@ -145,7 +145,7 @@ export function BudgetRow({
                     setEditing(true);
                     setError(null);
                   }}
-                  className="tabular-nums text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                  className="tabular-nums text-body underline-offset-2 hover:underline"
                   title="Edit monthly budget"
                 >
                   {usd.format(monthlyLimit)}
@@ -153,9 +153,7 @@ export function BudgetRow({
               )}
             </>
           )}
-          {!hasBudget && (
-            <span className="text-zinc-400"> · no budget</span>
-          )}
+          {!hasBudget && <span className="text-subtle"> · no budget</span>}
         </p>
       </div>
 
@@ -168,7 +166,7 @@ export function BudgetRow({
             aria-label={`${open ? "Hide" : "Show"} ${categoryName} transactions`}
           >
             <div
-              className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-900"
+              className="h-1.5 overflow-hidden rounded-full bg-wash"
               role="progressbar"
               aria-valuenow={Math.round(percentUsed ?? 0)}
               aria-valuemin={0}
@@ -177,25 +175,23 @@ export function BudgetRow({
             >
               <div
                 className={`h-full rounded-full transition-[width] ${
-                  over ? "bg-red-500" : "bg-zinc-800 dark:bg-zinc-200"
+                  over ? "bg-danger" : "bg-ink"
                 }`}
                 style={{ width: `${barWidth}%` }}
               />
             </div>
           </button>
 
-          <div className="flex items-center justify-between text-xs text-zinc-500">
+          <div className="flex items-center justify-between text-caption text-muted">
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
-              className="hover:text-zinc-700 dark:hover:text-zinc-300"
+              className="hover:text-body"
             >
               {Math.round(percentUsed ?? 0)}% used
               {open ? " · hide" : " · show"}
             </button>
-            <span
-              className={over ? "text-red-600 dark:text-red-400" : undefined}
-            >
+            <span className={over ? "text-danger" : undefined}>
               {over
                 ? `${usd.format(-(remaining ?? 0))} over`
                 : `${usd.format(remaining ?? 0)} left`}
@@ -208,29 +204,29 @@ export function BudgetRow({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="text-left text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          className="text-left text-caption text-muted hover:text-body"
         >
           {open ? "Hide transactions" : "Show transactions"}
         </button>
       )}
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-caption text-danger">{error}</p>}
 
       {open && (
-        <ul className="mt-1 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-900">
+        <ul className="mt-1 flex flex-col gap-2 border-t border-hairline pt-3">
           {transactions.length === 0 ? (
-            <li className="text-sm text-zinc-500">
+            <li className="text-caption text-muted">
               No month-to-date spend in this category yet.
             </li>
           ) : (
             transactions.map((t) => (
               <li
                 key={t.id}
-                className="flex items-start justify-between gap-3 text-sm"
+                className="flex items-start justify-between gap-3 text-caption"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{t.description}</p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="truncate font-medium text-ink">{t.description}</p>
+                  <p className="text-caption text-muted">
                     {t.date} · {t.accountName}
                   </p>
                 </div>

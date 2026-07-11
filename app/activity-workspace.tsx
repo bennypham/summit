@@ -113,10 +113,10 @@ export function ActivityWorkspace(props: ActivityWorkspaceProps) {
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-faint">
+              <h2 className="text-caption font-bold uppercase tracking-caps text-faint">
                 Activity
               </h2>
-              <p className="text-sm text-muted">
+              <p className="text-caption font-regular text-muted">
                 Tap a transaction to edit name and category
               </p>
             </div>
@@ -192,8 +192,8 @@ function ActivityList({
   onSelect: (id: Id<"transactions">) => void;
 }) {
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-surface p-2">
-      <p className="px-4 pb-3 pt-3 text-xs font-bold uppercase tracking-[0.1em] text-faint">
+    <div className="flex flex-col rounded-lg border border-border bg-surface p-2 shadow-sm">
+      <p className="px-4 pb-3 pt-3 text-caption font-bold uppercase tracking-caps text-faint">
         Activity — tap to edit
       </p>
       {transactions.length === 0 ? (
@@ -215,7 +215,7 @@ function ActivityList({
                   onClick={() => onSelect(t.id)}
                   className={`flex w-full items-center gap-3.5 rounded-md border-[1.5px] p-3.5 text-left transition-colors ${
                     selected
-                      ? "border-accent bg-[#F5F8FD]"
+                      ? "border-accent bg-tint-selected"
                       : "border-transparent hover:bg-wash/60"
                   }`}
                 >
@@ -327,8 +327,8 @@ function EditActivityPanel({
   }
 
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-surface p-4">
-      <p className="pb-4 text-xs font-bold uppercase tracking-[0.1em] text-faint">
+    <div className="flex flex-col rounded-lg border border-border bg-surface p-4 shadow-md">
+      <p className="pb-4 text-caption font-bold uppercase tracking-caps text-faint">
         Edit activity
       </p>
 
@@ -401,7 +401,7 @@ function EditActivityPanel({
           type="button"
           disabled={pending || !dirty}
           onClick={() => void save()}
-          className="flex-1 rounded-md bg-accent py-3 text-[15px] font-bold text-surface shadow-[0_8px_18px_-8px_#2E7BF6] disabled:opacity-50"
+          className="flex-1 rounded-md bg-accent py-3 text-body font-bold text-surface shadow-accent disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save changes"}
         </button>

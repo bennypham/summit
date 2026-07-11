@@ -30,7 +30,7 @@ export function AccountRow({ account }: { account: Account }) {
   const canExpand = !account.isBalanceOnly;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-surface px-4 py-3 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         {canExpand ? (
           <button
@@ -40,7 +40,7 @@ export function AccountRow({ account }: { account: Account }) {
             aria-expanded={open}
           >
             <span
-              className="mt-0.5 inline-block shrink-0 text-zinc-400 transition-transform"
+              className="mt-0.5 inline-block shrink-0 text-faint transition-transform"
               style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
               aria-hidden
             >
@@ -48,11 +48,11 @@ export function AccountRow({ account }: { account: Account }) {
             </span>
             <span className="min-w-0">
               <span className="block font-medium">{account.name}</span>
-              <span className="block text-sm text-zinc-500">
+              <span className="block text-caption text-muted">
                 {account.institutionName}
                 {account.mask ? ` ···${account.mask}` : ""}
                 {txns.length > 0 && (
-                  <span className="text-zinc-400">
+                  <span className="text-subtle">
                     {" "}
                     · {txns.length} this month
                   </span>
@@ -60,7 +60,7 @@ export function AccountRow({ account }: { account: Account }) {
               </span>
               {account.availableBalance != null &&
                 account.availableBalance !== account.currentBalance && (
-                  <span className="block text-xs text-zinc-400">
+                  <span className="block text-caption text-subtle">
                     {usd.format(account.availableBalance)} available
                   </span>
                 )}
@@ -69,7 +69,7 @@ export function AccountRow({ account }: { account: Account }) {
         ) : (
           <div className="min-w-0">
             <p className="font-medium">{account.name}</p>
-            <p className="text-sm text-zinc-500">
+            <p className="text-caption text-muted">
               {account.institutionName}
               {account.mask ? ` ···${account.mask}` : ""}
               {" · balance-only"}
@@ -83,7 +83,7 @@ export function AccountRow({ account }: { account: Account }) {
       </div>
 
       {open && canExpand && (
-        <ul className="mt-1 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-900">
+        <ul className="mt-1 flex flex-col gap-2 border-t border-hairline pt-3">
           {txns.length === 0 ? (
             <li className="text-sm text-zinc-500">
               No month-to-date Transactions on this Account.
@@ -98,7 +98,7 @@ export function AccountRow({ account }: { account: Account }) {
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium">{t.description}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-caption text-muted">
                       {t.date}
                       {t.isTransfer
                         ? " · Transfer"
@@ -113,7 +113,7 @@ export function AccountRow({ account }: { account: Account }) {
                       income
                         ? "text-emerald-700 dark:text-emerald-400"
                         : t.isTransfer
-                          ? "text-zinc-400"
+                          ? "text-subtle"
                           : ""
                     }`}
                   >

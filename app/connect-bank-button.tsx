@@ -1,17 +1,15 @@
 "use client";
 
 // Opens Plaid Link, then exchanges the public_token for a stored bank connection.
-//
-// Sequence:
-// 1. Click → POST /api/plaid/link-token → get linkToken
-// 2. usePlaidLink opens the Plaid modal (Sandbox: First Platypus Bank)
-// 3. onSuccess → POST /api/plaid/exchange with publicToken
-// 4. Reload so the server-rendered dashboard shows the new accounts
 
 import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 
-export function ConnectBankButton() {
+export function ConnectBankButton({
+  variant = "default",
+}: {
+  variant?: "default" | "sidebar";
+}) {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +24,6 @@ export function ConnectBankButton() {
         body: JSON.stringify({ publicToken }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Exchange failed");
-      // Full reload: dashboard is a Server Component reading Convex on the server.
       window.location.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to connect");
@@ -39,13 +36,11 @@ export function ConnectBankButton() {
     token: linkToken,
     onSuccess: (public_token) => onSuccess(public_token),
     onExit: () => {
-      // User closed Link without connecting — reset so they can try again.
       setLinkToken(null);
       setBusy(false);
     },
   });
 
-  // Open Link as soon as we have a token and the Plaid script is ready.
   useEffect(() => {
     if (linkToken && ready) open();
   }, [linkToken, ready, open]);
@@ -64,16 +59,17 @@ export function ConnectBankButton() {
     }
   }
 
+  const btnClass =
+    variant === "sidebar"
+      ? "w-full rounded-full bg-accent px-3 py-2 text-caption font-bold text-surface shadow-accent transition-colors hover:bg-accent/90 disabled:opacity-50"
+      : "rounded-full bg-accent px-4 py-2 text-caption font-bold text-surface shadow-accent transition-colors hover:bg-accent/90 disabled:opacity-50";
+
   return (
     <div className="flex flex-col items-start gap-1">
-      <button
-        onClick={connect}
-        disabled={busy}
-        className="w-full rounded-full bg-accent px-3 py-2 text-sm font-medium text-surface transition-colors hover:bg-accent/90 disabled:opacity-50"
-      >
+      <button onClick={connect} disabled={busy} className={btnClass}>
         {busy ? "Connecting…" : "Connect institution"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-caption text-danger">{error}</p>}
     </div>
   );
 }

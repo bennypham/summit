@@ -83,17 +83,17 @@ export function Dashboard({
 
   return (
     <>
-      <section className="flex flex-col gap-1 rounded-2xl bg-ink p-[18px] text-surface">
-        <p className="text-xs text-[#A9A498]">Total balance</p>
-        <p className="font-mono text-[28px] font-extrabold tracking-[-0.02em] tabular-nums">
+      <section className="flex flex-col gap-1 rounded-lg bg-ink p-[18px] text-surface shadow-md">
+        <p className="text-caption font-regular text-dark-nav">Total balance</p>
+        <p className="font-mono text-title font-extrabold tracking-title tabular-nums">
           {usd.format(totalBalance)}
         </p>
         {syncLabel && (
           <p
-            className={`text-xs ${
+            className={`text-caption ${
               items.some((i) => i.status === "error")
-                ? "text-red-400"
-                : "text-[#A9A498]"
+                ? "text-danger"
+                : "text-dark-nav"
             }`}
           >
             {syncLabel}

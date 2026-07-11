@@ -1,11 +1,12 @@
 "use client";
 
-// Triggers the same syncAll the daily cron uses, then reloads the dashboard.
-// Also retries Items stuck in "error" status from a previous failed sync.
-
 import { useState } from "react";
 
-export function RefreshButton() {
+export function RefreshButton({
+  variant = "default",
+}: {
+  variant?: "default" | "sidebar";
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,16 +23,17 @@ export function RefreshButton() {
     }
   }
 
+  const btnClass =
+    variant === "sidebar"
+      ? "w-full rounded-full border border-dark-border px-3 py-2 text-caption font-semibold text-dark-muted transition-colors hover:bg-dark-surface"
+      : "rounded-full border border-border-strong bg-surface px-4 py-2 text-caption font-semibold text-body transition-colors hover:bg-wash disabled:opacity-50";
+
   return (
     <div className="flex flex-col items-start gap-1">
-      <button
-        onClick={refresh}
-        disabled={busy}
-        className="w-full rounded-full border border-[#3d4454] px-3 py-2 text-sm text-[#c5cad4] transition-colors hover:bg-[#252932]"
-      >
+      <button onClick={refresh} disabled={busy} className={btnClass}>
         {busy ? "Syncing…" : "Refresh now"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-caption text-danger">{error}</p>}
     </div>
   );
 }
