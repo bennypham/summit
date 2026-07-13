@@ -3,6 +3,24 @@ import { Id } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./functions";
 import { ensureDefaultCategories } from "./lib/categories";
 
+/** True when default categories/budgets still need to be seeded. */
+export const needsDefaults = authedQuery({
+  args: {},
+  handler: async (ctx) => {
+    const groceries = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Groceries"))
+      .first();
+    if (!groceries) return true;
+
+    const budget = await ctx.db
+      .query("budgets")
+      .withIndex("by_category", (q) => q.eq("categoryId", groceries._id))
+      .first();
+    return budget == null;
+  },
+});
+
 /** Idempotent: seed categories + default budgets if missing (e.g. after Refresh). */
 export const ensureDefaults = authedMutation({
   args: {},

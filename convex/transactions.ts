@@ -82,10 +82,25 @@ export const update = authedMutation({
       if (!category) throw new Error("Category not found");
     }
 
-    await ctx.db.patch(transactionId, {
+    const patch: {
+      description: string;
+      descriptionOverridden: true;
+      categoryId?: typeof categoryId;
+      categoryOverridden?: true;
+    } = {
       description: trimmed,
-      ...(txn.isTransfer ? {} : { categoryId, categoryOverridden: true }),
       descriptionOverridden: true,
-    });
+    };
+
+    if (!txn.isTransfer && categoryId !== undefined) {
+      const prev = txn.categoryId ?? null;
+      const next = categoryId ?? null;
+      if (prev !== next) {
+        patch.categoryId = categoryId;
+        patch.categoryOverridden = true;
+      }
+    }
+
+    await ctx.db.patch(transactionId, patch);
   },
 });

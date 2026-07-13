@@ -72,7 +72,7 @@ export async function dedupeCategories(ctx: MutationCtx) {
       }
     }
 
-    const keepBudget = await ctx.db
+    let keeperBudget = await ctx.db
       .query("budgets")
       .withIndex("by_category", (q) => q.eq("categoryId", keep._id))
       .first();
@@ -82,8 +82,14 @@ export async function dedupeCategories(ctx: MutationCtx) {
         .withIndex("by_category", (q) => q.eq("categoryId", dupe._id))
         .first();
       if (!budget) continue;
-      if (keepBudget) await ctx.db.delete(budget._id);
-      else await ctx.db.patch(budget._id, { categoryId: keep._id });
+      if (keeperBudget) await ctx.db.delete(budget._id);
+      else {
+        await ctx.db.patch(budget._id, { categoryId: keep._id });
+        keeperBudget = await ctx.db
+          .query("budgets")
+          .withIndex("by_category", (q) => q.eq("categoryId", keep._id))
+          .first();
+      }
     }
 
     for (const m of await ctx.db.query("plaidCategoryMappings").collect()) {

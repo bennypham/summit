@@ -59,11 +59,17 @@ export function BudgetRow({
       setError("Enter a valid amount");
       return;
     }
-    const res = await fetch("/api/budgets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryId, monthlyLimit: nextLimit }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId, monthlyLimit: nextLimit }),
+      });
+    } catch {
+      setError("Network error — please try again");
+      return;
+    }
     if (!res.ok) {
       setError("Could not save budget");
       return;

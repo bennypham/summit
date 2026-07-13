@@ -14,8 +14,12 @@ export default async function Home() {
 
   const convex = convexServerClient();
 
-  // Backfill default Categories/Budgets for Items connected before this feature.
-  await convex.mutation(api.budgets.ensureDefaults, { sessionToken });
+  const needsDefaults = await convex.query(api.budgets.needsDefaults, {
+    sessionToken,
+  });
+  if (needsDefaults) {
+    await convex.mutation(api.budgets.ensureDefaults, { sessionToken });
+  }
 
   const [
     accounts,

@@ -58,16 +58,21 @@ export function EditActivityModal({
 
   async function save() {
     setError(null);
-    const res = await fetch("/api/transactions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        transactionId: transaction.id,
-        description: name,
-        categoryId: transaction.isTransfer ? null : categoryId,
-      }),
-    });
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactionId: transaction.id,
+          description: name,
+          categoryId: transaction.isTransfer ? null : categoryId,
+        }),
+      });
+      if (!res.ok) {
+        setError("Could not save changes");
+        return;
+      }
+    } catch {
       setError("Could not save changes");
       return;
     }
