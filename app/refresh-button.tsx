@@ -25,8 +25,8 @@ export function RefreshButton({
 
   const btnClass =
     variant === "sidebar"
-      ? "w-full rounded-full border border-dark-border px-3 py-2 text-caption font-semibold text-dark-muted transition-colors hover:bg-dark-surface"
-      : "rounded-full border border-border-strong bg-surface px-4 py-2 text-caption font-semibold text-body transition-colors hover:bg-wash disabled:opacity-50";
+      ? "btn-ghost w-full border-dark-border text-dark-muted hover:border-dark-muted hover:bg-dark-surface"
+      : "btn-ghost text-caption disabled:opacity-50";
 
   return (
     <div className="flex flex-col items-start gap-1">

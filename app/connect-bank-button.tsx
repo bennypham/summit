@@ -61,8 +61,8 @@ export function ConnectBankButton({
 
   const btnClass =
     variant === "sidebar"
-      ? "w-full rounded-full bg-accent px-3 py-2 text-caption font-bold text-surface shadow-accent transition-colors hover:bg-accent/90 disabled:opacity-50"
-      : "rounded-full bg-accent px-4 py-2 text-caption font-bold text-surface shadow-accent transition-colors hover:bg-accent/90 disabled:opacity-50";
+      ? "btn-primary w-full text-caption"
+      : "btn-primary text-caption";
 
   return (
     <div className="flex flex-col items-start gap-1">

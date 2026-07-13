@@ -2,6 +2,13 @@
 
 import { ReactNode, useEffect } from "react";
 import { ConnectBankButton } from "./connect-bank-button";
+import {
+  IconAccounts,
+  IconBudgets,
+  IconDashboard,
+  IconReports,
+  IconSettings,
+} from "./nav-icons";
 import { RefreshButton } from "./refresh-button";
 import { SignOutButton } from "./sign-out-button";
 
@@ -9,15 +16,37 @@ type AppShellProps = {
   children: ReactNode;
   search: string;
   onSearchChange: (value: string) => void;
+  headerSubtitle: string;
 };
 
 const navItems = [
-  { id: "dashboard", label: "Dashboard", active: true },
-  { id: "accounts", label: "Accounts", active: false },
-  { id: "budgets", label: "Budgets", active: false },
-];
+  { id: "dashboard", label: "Dashboard", Icon: IconDashboard, active: true },
+  { id: "accounts", label: "Accounts", Icon: IconAccounts, active: false },
+  { id: "budgets", label: "Budgets", Icon: IconBudgets, active: false },
+  { id: "reports", label: "Reports", Icon: IconReports, active: false },
+] as const;
 
-export function AppShell({ children, search, onSearchChange }: AppShellProps) {
+function timeGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function headerDate() {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+export function AppShell({
+  children,
+  search,
+  onSearchChange,
+  headerSubtitle,
+}: AppShellProps) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -31,24 +60,33 @@ export function AppShell({ children, search, onSearchChange }: AppShellProps) {
 
   return (
     <div className="flex min-h-full bg-paper">
-      <aside className="hidden w-[210px] shrink-0 flex-col gap-1.5 bg-ink px-3.5 py-5 md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col gap-1.5 bg-ink px-3.5 py-5 md:flex">
         <div className="flex items-center gap-2.5 px-2 pb-3 pt-1">
-          <div className="h-7 w-7 shrink-0 rounded-[9px] bg-accent shadow-accent" />
-          <span className="text-body font-extrabold text-surface">Summit</span>
+          <div className="h-7 w-7 shrink-0 rounded-[9px] bg-accent" />
+          <span className="text-[17px] font-extrabold leading-[22px] text-surface">
+            Summit
+          </span>
         </div>
-        {navItems.map((item) => (
+
+        {navItems.map(({ id, label, Icon, active }) => (
           <div
-            key={item.id}
-            className={`flex items-center gap-3 rounded-[11px] px-3 py-2.5 text-caption ${
-              item.active
-                ? "bg-accent font-bold text-surface shadow-accent"
+            key={id}
+            className={`flex items-center gap-3 rounded-[11px] px-3 py-2.5 text-[14px] ${
+              active
+                ? "bg-accent font-bold text-surface"
                 : "font-semibold text-dark-nav"
             }`}
           >
-            {item.label}
+            <Icon active={active} />
+            {label}
           </div>
         ))}
-        <div className="mt-auto flex flex-col gap-2 px-2 pb-1 pt-4">
+
+        <div className="mt-auto flex flex-col gap-1.5 pt-4">
+          <div className="flex items-center gap-3 rounded-[11px] px-3 py-2.5 text-[14px] font-semibold text-dark-nav">
+            <IconSettings />
+            Settings
+          </div>
           <ConnectBankButton variant="sidebar" />
           <RefreshButton variant="sidebar" />
           <SignOutButton variant="sidebar" />
@@ -56,25 +94,61 @@ export function AppShell({ children, search, onSearchChange }: AppShellProps) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[58px] shrink-0 items-center justify-between border-b border-hairline bg-surface px-5 shadow-sm">
-          <h1 className="text-body font-extrabold text-ink">Dashboard</h1>
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 px-5 pb-5 pt-4">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-[26px] font-extrabold leading-8 tracking-title text-ink">
+              {timeGreeting()}
+            </h1>
+            <p className="text-[14px] font-medium text-muted">
+              {headerDate()} · {headerSubtitle}
+            </p>
+          </div>
+
           <div className="flex items-center gap-3">
-            <label className="relative hidden w-[260px] sm:block">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">
-                ⌕
-              </span>
+            <label className="search-pill-field hidden sm:flex">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                className="shrink-0 text-muted"
+                aria-hidden
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1="20"
+                  y1="20"
+                  x2="16.5"
+                  y2="16.5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
               <input
                 id="activity-search"
                 type="search"
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search transactions…"
-                className="w-full rounded-xl border-[1.5px] border-border-strong bg-field py-2 pl-9 pr-16 text-caption font-regular text-ink outline-none placeholder:text-muted focus:border-accent"
+                className="search-pill-input"
               />
-              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-md border border-border bg-wash px-2 py-0.5 font-mono text-xs text-muted">
-                ⌘K
-              </span>
             </label>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface">
+              <span className="text-muted" aria-hidden>
+                🔔
+              </span>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-[14px] font-bold text-surface">
+              S
+            </div>
             <div className="flex items-center gap-2 md:hidden">
               <ConnectBankButton />
               <RefreshButton />
@@ -82,7 +156,7 @@ export function AppShell({ children, search, onSearchChange }: AppShellProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-5">{children}</main>
+        <main className="flex min-h-0 flex-1 px-5 pb-8 pt-2">{children}</main>
       </div>
     </div>
   );

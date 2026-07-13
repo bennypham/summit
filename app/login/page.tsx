@@ -69,6 +69,23 @@ export default function LoginPage() {
     }
   }
 
+  async function devSignIn() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/dev-login", { method: "POST" });
+      if (!res.ok) {
+        throw new Error((await res.json()).error ?? "Dev sign-in failed");
+      }
+      window.location.href = "/";
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Dev sign-in failed");
+      setBusy(false);
+    }
+  }
+
+  const isDev = process.env.NODE_ENV === "development";
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-paper px-6">
       <h1 className="text-title font-bold tracking-title text-ink">Summit</h1>
@@ -80,13 +97,25 @@ export default function LoginPage() {
             : "First run — register the owner passkey for this device."}
       </p>
       {hasPasskey !== undefined && (
-        <button
-          onClick={hasPasskey ? signIn : register}
-          disabled={busy}
-          className="rounded-full bg-accent px-6 py-3 text-body font-bold text-surface shadow-accent transition-colors hover:bg-accent/90 disabled:opacity-50"
-        >
-          {busy ? "Waiting…" : hasPasskey ? "Sign in" : "Set up passkey"}
-        </button>
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={hasPasskey ? signIn : register}
+            disabled={busy}
+            className="btn-primary px-6 py-3 text-body disabled:opacity-50"
+          >
+            {busy ? "Waiting…" : hasPasskey ? "Sign in" : "Set up passkey"}
+          </button>
+          {isDev && (
+            <button
+              type="button"
+              onClick={() => void devSignIn()}
+              disabled={busy}
+              className="btn-ghost px-5 py-2.5 text-caption disabled:opacity-50"
+            >
+              Continue without passkey (dev)
+            </button>
+          )}
+        </div>
       )}
       {error && <p className="text-caption text-danger">{error}</p>}
     </main>
