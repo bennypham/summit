@@ -132,7 +132,10 @@ export function DashboardRightRail({
           <h3 className="text-section-title text-ink">
             Budgets
           </h3>
-          <span className="text-list-secondary font-semibold text-muted">
+          <span
+            className="text-list-secondary font-semibold text-muted"
+            suppressHydrationWarning
+          >
             {daysLeft} days left
           </span>
         </div>

@@ -202,7 +202,10 @@ export function ActivityFeed({
                     index === 0 ? "pt-0" : ""
                   }`}
                 >
-                  <span className="text-label-caps text-faint">
+                  <span
+                    className="text-label-caps text-faint"
+                    suppressHydrationWarning
+                  >
                     {group.label}
                   </span>
                   <div className="h-px flex-1 bg-hairline" />
@@ -296,7 +299,7 @@ function ActivityPaginationFooter({
         <p className="text-caption font-semibold leading-4 text-ink">
           That&apos;s everything
         </p>
-        <p className="text-[12px] leading-3 text-muted">
+        <p className="text-[12px] leading-3 text-muted" suppressHydrationWarning>
           {totalCount} transaction{totalCount === 1 ? "" : "s"}
           {syncLabel ? ` · ${syncLabel}` : ""}
         </p>
@@ -421,7 +424,10 @@ function ActivityRow({
               ? `+${usd.format(-t.amount)}`
               : `−${usd.format(t.amount)}`}
           </p>
-          <p className="text-list-secondary text-faint">
+          <p
+            className="text-list-secondary text-faint"
+            suppressHydrationWarning
+          >
             {t.pending ? "Pending" : formatRowDate(t.date)}
           </p>
         </div>

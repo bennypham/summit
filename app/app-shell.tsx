@@ -100,10 +100,17 @@ export function AppShell({
         <header className="flex shrink-0 flex-col gap-3 px-5 pb-5 pt-4">
           <div className="flex items-start justify-between gap-3 lg:items-center">
             <div className="min-w-0">
-              <h1 className="text-[26px] font-extrabold leading-8 tracking-title text-ink">
+              {/* Local clock — suppressHydrationWarning: server/client timezones can differ. */}
+              <h1
+                className="text-[26px] font-extrabold leading-8 tracking-title text-ink"
+                suppressHydrationWarning
+              >
                 {timeGreeting()}
               </h1>
-              <p className="truncate text-list-secondary text-muted">
+              <p
+                className="truncate text-list-secondary text-muted"
+                suppressHydrationWarning
+              >
                 {headerDate()} · {headerSubtitle}
               </p>
             </div>
