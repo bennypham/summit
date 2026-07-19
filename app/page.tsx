@@ -26,14 +26,20 @@ export default async function Home() {
     totalBalance,
     items,
     budgetSummary,
-    activity,
+    activityPage,
+    cashflow,
     categories,
   ] = await Promise.all([
     convex.query(api.accounts.list, { sessionToken }),
     convex.query(api.accounts.totalBalance, { sessionToken }),
     convex.query(api.items.list, { sessionToken }),
     convex.query(api.budgets.summary, { sessionToken }),
-    convex.query(api.transactions.listActivity, { sessionToken }),
+    convex.query(api.transactions.listActivityPage, {
+      sessionToken,
+      filter: "all",
+      limit: 30,
+    }),
+    convex.query(api.transactions.mtdCashflow, { sessionToken }),
     convex.query(api.categories.list, { sessionToken }),
   ]);
 
@@ -44,8 +50,9 @@ export default async function Home() {
       items={items}
       budgetMonth={budgetSummary.month}
       budgetCategories={budgetSummary.categories}
-      activityMonth={activity.month}
-      transactions={activity.transactions}
+      mtdIn={cashflow.mtdIn}
+      mtdOut={cashflow.mtdOut}
+      initialActivity={activityPage}
       categories={categories}
     />
   );

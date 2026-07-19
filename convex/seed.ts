@@ -619,3 +619,112 @@ export const normalizeNetWorthForDemo = internalMutation({
     return { patched, estimatedNetWorth: netWorthFromAccounts(updated) };
   },
 });
+
+/**
+ * Dense multi-month history so Activity Load More (page size 30) is exercisable.
+ * Idempotent via plaidTransactionId prefix `demo-history-`.
+ * Run with: npx convex run seed:seedActivityHistory
+ */
+export const seedActivityHistory = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await ensureDefaultCategories(ctx);
+
+    const categories = await ctx.db.query("categories").collect();
+    const categoryByName = new Map(categories.map((c) => [c.name, c._id]));
+
+    const accounts = await ctx.db.query("accounts").collect();
+    const checking =
+      accounts.find((a) => a.type === "checking" && !a.isBalanceOnly) ??
+      accounts.find((a) => !a.isBalanceOnly);
+    const credit = accounts.find((a) => a.type === "credit" && !a.isBalanceOnly);
+    if (!checking) throw new Error("No transaction account found");
+
+    const spendAccount = credit?._id ?? checking._id;
+    const merchants = [
+      { name: "Blue Bottle Coffee", amount: 6.5, category: "Dining" },
+      { name: "Whole Foods", amount: 84.2, category: "Groceries" },
+      { name: "Uber Trip", amount: 18.75, category: "Transportation" },
+      { name: "Shell Gas", amount: 52.1, category: "Transportation" },
+      { name: "Netflix", amount: 15.99, category: "Subscriptions" },
+      { name: "Spotify", amount: 11.99, category: "Subscriptions" },
+      { name: "Target", amount: 43.6, category: "Shopping" },
+      { name: "Amazon", amount: 67.4, category: "Shopping" },
+      { name: "Chipotle", amount: 14.85, category: "Dining" },
+      { name: "PG&E", amount: 64.99, category: "Rent" },
+      { name: "AMC Theatres", amount: 28.5, category: "Entertainment" },
+      { name: "CVS Pharmacy", amount: 22.3, category: "Shopping" },
+    ] as const;
+
+    const today = new Date();
+    let inserted = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < 90; i++) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      const y = day.getFullYear();
+      const m = String(day.getMonth() + 1).padStart(2, "0");
+      const d = String(day.getDate()).padStart(2, "0");
+      const date = `${y}-${m}-${d}`;
+      const merchant = merchants[i % merchants.length]!;
+      const plaidTransactionId = `demo-history-${date}-${i}`;
+
+      const existing = await ctx.db
+        .query("transactions")
+        .withIndex("by_plaid_transaction_id", (q) =>
+          q.eq("plaidTransactionId", plaidTransactionId),
+        )
+        .first();
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      const isPayday = i % 14 === 0;
+      const isTransfer = i % 23 === 0;
+
+      if (isTransfer) {
+        await ctx.db.insert("transactions", {
+          accountId: checking._id,
+          plaidTransactionId,
+          date,
+          description: "Transfer to Savings",
+          amount: 250,
+          pending: false,
+          categoryOverridden: false,
+          descriptionOverridden: false,
+          isTransfer: true,
+        });
+      } else if (isPayday) {
+        await ctx.db.insert("transactions", {
+          accountId: checking._id,
+          plaidTransactionId,
+          date,
+          description: "GUSTO PAYROLL DEPOSIT",
+          amount: -3200,
+          pending: false,
+          categoryOverridden: false,
+          descriptionOverridden: false,
+          isTransfer: false,
+        });
+      } else {
+        await ctx.db.insert("transactions", {
+          accountId: spendAccount,
+          plaidTransactionId,
+          date,
+          description: merchant.name,
+          amount: merchant.amount + (i % 7) * 1.15,
+          pending: false,
+          categoryId: categoryByName.get(merchant.category),
+          categoryOverridden: false,
+          descriptionOverridden: false,
+          isTransfer: false,
+        });
+      }
+      inserted++;
+    }
+
+    return { inserted, skipped };
+  },
+});
