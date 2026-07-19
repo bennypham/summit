@@ -202,9 +202,14 @@ export function ActivityFeed({
 }
 
 function StickyDatePill({ label }: { label: string }) {
+  // Paper · Feed Scrolled sticky date — ink pill floating over the scroller.
   return (
-    <div className="sticky-date-pill">
-      <span className="sticky-date-pill-label">{label}</span>
+    <div
+      className="flex h-[26px] items-center justify-center rounded-full bg-ink px-[14px] shadow-[0_4px_12px_rgb(23_23_26_/_0.18)]"
+    >
+      <span className="whitespace-nowrap text-[11px] font-bold leading-[14px] tracking-[0.08em] text-surface">
+        {label}
+      </span>
     </div>
   );
 }

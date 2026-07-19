@@ -482,26 +482,6 @@ body {
   appearance: none;
 }
 
-/* Paper · Feed Scrolled — floating sticky date pill */
-.sticky-date-pill {
-  display: flex;
-  height: 26px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--color-ink);
-  padding-inline: 14px;
-  box-shadow: rgb(23 23 26 / 0.18) 0 4px 12px;
-}
-.sticky-date-pill-label {
-  font-size: 11px;
-  font-weight: var(--font-weight-bold);
-  line-height: 14px;
-  letter-spacing: 0.08em;
-  color: var(--color-surface);
-  white-space: nowrap;
-}
-
 .search-pill {
   width: 100%;
   border-radius: var(--radius-full);
