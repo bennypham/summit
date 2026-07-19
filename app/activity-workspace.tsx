@@ -41,8 +41,6 @@ type ActivityWorkspaceProps = {
     remaining: number;
     percentUsed: number;
   }[];
-  unbudgetedCategories: unknown[];
-  budgetTotals: unknown;
   activityMonth: string;
   transactions: ActivityTransaction[];
   categories: CategoryOption[];

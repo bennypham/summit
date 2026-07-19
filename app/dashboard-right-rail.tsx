@@ -325,13 +325,7 @@ function groupAccounts(accounts: Account[]): GroupedAccountSection[] {
     const list = (byKey.get(group.key) ?? []).sort(
       (a, b) => b.currentBalance - a.currentBalance,
     );
-    const subtotal = list.reduce(
-      (sum, a) =>
-        group.key === "creditLoans"
-          ? sum + a.currentBalance
-          : sum + a.currentBalance,
-      0,
-    );
+    const subtotal = list.reduce((sum, a) => sum + a.currentBalance, 0);
     return {
       key: group.key,
       label: group.label,

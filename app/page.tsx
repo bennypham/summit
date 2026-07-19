@@ -44,8 +44,6 @@ export default async function Home() {
       items={items}
       budgetMonth={budgetSummary.month}
       budgetCategories={budgetSummary.categories}
-      unbudgetedCategories={budgetSummary.unbudgeted}
-      budgetTotals={budgetSummary.totals}
       activityMonth={activity.month}
       transactions={activity.transactions}
       categories={categories}
