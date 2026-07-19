@@ -78,7 +78,7 @@ export function ActivityWorkspace(props: ActivityWorkspaceProps) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return props.transactions.filter((t) => {
-      if (filter === "income" && t.amount >= 0) return false;
+      if (filter === "income" && (t.amount >= 0 || t.isTransfer)) return false;
       if (filter === "spending" && (t.amount <= 0 || t.isTransfer)) return false;
       if (filter === "transfers" && !t.isTransfer) return false;
       if (!q) return true;
@@ -105,7 +105,7 @@ export function ActivityWorkspace(props: ActivityWorkspaceProps) {
       headerSubtitle={headerSubtitle}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-        <div className="flex min-h-[480px] min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <ActivityFeed
             transactions={filtered}
             filter={filter}

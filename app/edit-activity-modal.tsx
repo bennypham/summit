@@ -7,7 +7,11 @@ import type {
   ActivityTransaction,
   CategoryOption,
 } from "./activity-workspace";
-import { ActivityTransactionIcon } from "./activity-icons";
+import {
+  ActivityIconGlyph,
+  ActivityTransactionIcon,
+  categoryIconKind,
+} from "./activity-icons";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -103,99 +107,100 @@ export function EditActivityModal({
           className="modal-dialog w-full max-w-[520px]"
           onClick={(e) => e.stopPropagation()}
         >
-        <div className="flex items-center justify-between pb-5">
-          <h2
-            id="edit-activity-title"
-            className="text-[20px] font-extrabold tracking-heading text-ink"
-          >
-            Edit activity
-          </h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-field"
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              aria-hidden
-              className="text-body"
+          <div className="flex items-center justify-between pb-5">
+            <h2
+              id="edit-activity-title"
+              className="text-[20px] font-extrabold leading-4 tracking-heading text-ink"
             >
-              <line
-                x1="6"
-                y1="6"
-                x2="18"
-                y2="18"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <line
-                x1="18"
-                y1="6"
-                x2="6"
-                y2="18"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        </div>
+              Edit activity
+            </h2>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-field"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                aria-hidden
+                className="text-body"
+              >
+                <line
+                  x1="6"
+                  y1="6"
+                  x2="18"
+                  y2="18"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1="18"
+                  y1="6"
+                  x2="6"
+                  y2="18"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
 
-        <div className="flex items-center gap-3.5 pb-5">
-          <ActivityTransactionIcon
-            transaction={transaction}
-            size="lg"
-            className="rounded-2xl"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[17px] font-bold leading-[22px] text-ink">
-              {transaction.description}
-            </p>
-            <p className="truncate text-caption font-medium text-muted">
-              {formatMeta(transaction)}
+          <div className="flex items-center gap-3.5 pb-5">
+            <ActivityTransactionIcon
+              transaction={transaction}
+              size="detail"
+              className="rounded-[18px]"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-list-primary text-ink">
+                {transaction.description}
+              </p>
+              <p className="truncate text-list-secondary text-muted">
+                {formatMeta(transaction)}
+              </p>
+            </div>
+            <p
+              className={`shrink-0 font-mono text-[20px] font-bold leading-4 tabular-nums ${
+                income ? "text-success" : "text-ink"
+              }`}
+            >
+              {income
+                ? `+${usd.format(-transaction.amount)}`
+                : `−${usd.format(transaction.amount)}`}
             </p>
           </div>
-          <p
-            className={`shrink-0 font-mono text-[20px] font-bold tabular-nums ${
-              income ? "text-success" : "text-ink"
-            }`}
-          >
-            {income
-              ? `+${usd.format(-transaction.amount)}`
-              : `−${usd.format(transaction.amount)}`}
-          </p>
-        </div>
 
-        <div className="flex flex-col gap-2 pb-[18px]">
-          <label
-            htmlFor="edit-activity-name"
-            className="text-[12px] font-bold tracking-caps text-faint"
-          >
-            NAME
-          </label>
-          <input
-            id="edit-activity-name"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setDirty(true);
-            }}
-            className="input-field-modal"
-          />
-        </div>
+          <div className="flex flex-col gap-2 pb-[18px]">
+            <label
+              htmlFor="edit-activity-name"
+              className="text-label-caps text-faint"
+            >
+              NAME
+            </label>
+            <input
+              id="edit-activity-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setDirty(true);
+              }}
+              className="input-field-modal"
+            />
+          </div>
 
-        {!transaction.isTransfer && (
-          <div className="flex flex-col gap-2.5 pb-6">
-            <p className="text-[12px] font-bold tracking-caps text-faint">
-              CATEGORY
-            </p>
-            <div className="flex flex-wrap gap-2">
+          {!transaction.isTransfer && (
+            <div className="flex flex-col gap-2.5 pb-4">
+              <p className="text-label-caps text-faint">
+                CATEGORY
+              </p>
+              <div className="flex flex-wrap gap-2">
                 {editCategories.map((c) => {
                   const active = categoryId === c._id;
+                  const kind = categoryIconKind(c.name);
                   return (
                     <button
                       key={c._id}
@@ -204,47 +209,59 @@ export function EditActivityModal({
                         setCategoryId(c._id);
                         setDirty(true);
                       }}
-                      className={active ? "chip chip-active" : "chip"}
+                      className={
+                        active ? "chip-category chip-category-active" : "chip-category"
+                      }
                     >
-                      {c.name}
+                      <ActivityIconGlyph
+                        kind={kind}
+                        size={13}
+                        className={active ? "text-surface" : "text-body"}
+                      />
+                      {chipLabel(c.name)}
                     </button>
                   );
                 })}
+              </div>
             </div>
+          )}
+
+          {transaction.isTransfer && (
+            <p className="pb-4 text-caption font-medium text-muted">
+              Transfers stay excluded from budget math, but you can rename them.
+            </p>
+          )}
+
+          {error && <p className="pb-3 text-caption text-danger">{error}</p>}
+
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              disabled={pending || !dirty}
+              onClick={() => void save()}
+              className="modal-btn-primary flex-1 disabled:opacity-50"
+            >
+              {pending ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              type="button"
+              disabled={pending || !dirty}
+              onClick={reset}
+              className="modal-btn-secondary shrink-0 disabled:opacity-50"
+            >
+              Reset
+            </button>
           </div>
-        )}
-
-        {transaction.isTransfer && (
-          <p className="pb-6 text-caption font-medium text-muted">
-            Transfers stay excluded from budget math, but you can rename them.
-          </p>
-        )}
-
-        {error && <p className="pb-3 text-caption text-danger">{error}</p>}
-
-        <div className="flex gap-2.5">
-          <button
-            type="button"
-            disabled={pending || !dirty}
-            onClick={() => void save()}
-            className="modal-btn-primary flex-1 disabled:opacity-50"
-          >
-            {pending ? "Saving…" : "Save changes"}
-          </button>
-          <button
-            type="button"
-            disabled={pending || !dirty}
-            onClick={reset}
-            className="modal-btn-secondary shrink-0 disabled:opacity-50"
-          >
-            Reset
-          </button>
-        </div>
         </div>
       </div>
     </div>,
     document.body,
   );
+}
+
+function chipLabel(categoryName: string) {
+  if (categoryName === "Transportation") return "Transport";
+  return categoryName;
 }
 
 function formatMeta(t: ActivityTransaction) {

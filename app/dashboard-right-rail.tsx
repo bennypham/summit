@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import type { Account } from "./dashboard-sections";
 
@@ -54,7 +55,35 @@ const BUDGET_BAR_COLORS: Record<string, string> = {
   Rent: "bg-tangerine",
 };
 
-const ACCOUNT_AVATAR_COLORS = ["bg-accent", "bg-danger", "bg-ink", "bg-grape"];
+type AccountGroupKey = "cash" | "investments" | "creditLoans";
+
+const ACCOUNT_GROUPS: {
+  key: AccountGroupKey;
+  label: string;
+  dotClass: string;
+  types: Account["type"][];
+}[] = [
+  {
+    key: "cash",
+    label: "Cash & checking",
+    dotClass: "bg-accent",
+    types: ["checking", "savings"],
+  },
+  {
+    key: "investments",
+    label: "Investments",
+    dotClass: "bg-grass",
+    types: ["brokerage"],
+  },
+  {
+    key: "creditLoans",
+    label: "Credit & loans",
+    dotClass: "bg-grape",
+    types: ["credit", "loan"],
+  },
+];
+
+const ACCOUNTS_PREVIEW_LIMIT = 2;
 
 export function DashboardRightRail({
   totalBalance,
@@ -69,9 +98,9 @@ export function DashboardRightRail({
   const widgetBudgets = pickBudgetWidgetCategories(budgetCategories);
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-[372px]">
+    <aside className="flex w-full shrink-0 flex-col gap-3 overflow-y-auto lg:w-[372px] lg:max-h-full">
       <div className="flex flex-col gap-3.5 rounded-lg bg-ink p-4">
-        <p className="text-[12px] font-bold tracking-caps text-dark-muted">
+        <p className="text-label-caps text-dark-muted">
           TOTAL BALANCE
         </p>
         <p className="text-[44px] font-extrabold leading-[46px] tracking-display text-surface tabular-nums">
@@ -81,7 +110,7 @@ export function DashboardRightRail({
 
       <div className="flex gap-3">
         <div className="flex flex-1 flex-col gap-1 rounded-[16px] bg-surface px-5 py-[18px]">
-          <span className="text-caption font-semibold text-muted">
+          <span className="text-list-secondary font-semibold text-muted">
             In · {monthShort}
           </span>
           <span className="font-mono text-[20px] font-bold leading-4 text-success tabular-nums">
@@ -89,7 +118,7 @@ export function DashboardRightRail({
           </span>
         </div>
         <div className="flex flex-1 flex-col gap-1 rounded-[16px] bg-surface px-5 py-[18px]">
-          <span className="text-caption font-semibold text-muted">
+          <span className="text-list-secondary font-semibold text-muted">
             Out · {monthShort}
           </span>
           <span className="font-mono text-[20px] font-bold leading-4 text-danger tabular-nums">
@@ -100,15 +129,15 @@ export function DashboardRightRail({
 
       <div className="flex flex-col justify-between gap-4 rounded-lg bg-surface p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-[17px] font-extrabold tracking-heading text-ink">
+          <h3 className="text-section-title text-ink">
             Budgets
           </h3>
-          <span className="text-caption font-semibold text-muted">
+          <span className="text-list-secondary font-semibold text-muted">
             {daysLeft} days left
           </span>
         </div>
         {widgetBudgets.length === 0 ? (
-          <p className="text-caption font-medium text-muted">
+          <p className="text-list-secondary text-muted">
             Connect a bank and refresh to seed budgets.
           </p>
         ) : (
@@ -118,20 +147,7 @@ export function DashboardRightRail({
         )}
       </div>
 
-      <div className="flex flex-col gap-3.5 rounded-lg bg-surface p-4">
-        <h3 className="text-[17px] font-extrabold tracking-heading text-ink">
-          Accounts
-        </h3>
-        {accounts.length === 0 ? (
-          <p className="text-caption font-medium text-muted">
-            No accounts linked yet.
-          </p>
-        ) : (
-          accounts.map((account, i) => (
-            <AccountRow key={account._id} account={account} index={i} />
-          ))
-        )}
-      </div>
+      <GroupedAccounts accounts={accounts} />
     </aside>
   );
 }
@@ -147,9 +163,9 @@ function BudgetBar({ row }: { row: BudgetCategory }) {
   return (
     <div className="flex flex-col gap-[7px]">
       <div className="flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-body">{label}</span>
+        <span className="text-list-secondary font-semibold text-body">{label}</span>
         <span
-          className={`font-mono text-[12px] font-medium tabular-nums ${
+          className={`text-mono-amount-sm ${
             over ? "text-danger" : "text-muted"
           }`}
         >
@@ -166,33 +182,164 @@ function BudgetBar({ row }: { row: BudgetCategory }) {
   );
 }
 
-function AccountRow({ account, index }: { account: Account; index: number }) {
-  const initials = account.institutionName
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-  const avatarColor =
-    ACCOUNT_AVATAR_COLORS[index % ACCOUNT_AVATAR_COLORS.length];
+function GroupedAccounts({ accounts }: { accounts: Account[] }) {
+  const [expanded, setExpanded] = useState<Record<AccountGroupKey, boolean>>({
+    cash: false,
+    investments: false,
+    creditLoans: false,
+  });
 
-  return (
-    <div className="flex items-center gap-3">
-      <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[12px] font-extrabold text-surface ${avatarColor}`}
-      >
-        {initials || "AC"}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-bold text-ink">{account.name}</p>
-        <p className="text-[12px] font-medium text-muted">
-          {account.mask ? `·· ${account.mask}` : account.institutionName}
+  const groups = useMemo(() => groupAccounts(accounts), [accounts]);
+
+  if (accounts.length === 0) {
+    return (
+      <div className="flex flex-col gap-3.5 rounded-lg bg-surface p-4">
+        <h3 className="text-section-title text-ink">
+          Accounts
+        </h3>
+        <p className="text-list-secondary text-muted">
+          No accounts linked yet.
         </p>
       </div>
-      <p className="shrink-0 font-mono text-[14px] font-semibold tabular-nums text-ink">
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg bg-surface p-4">
+      <h3 className="text-section-title text-ink">
+        Accounts
+      </h3>
+      {groups.map((group, index) => (
+        <AccountGroupSection
+          key={group.key}
+          group={group}
+          expanded={expanded[group.key]}
+          onToggle={() =>
+            setExpanded((prev) => ({
+              ...prev,
+              [group.key]: !prev[group.key],
+            }))
+          }
+          showDivider={index > 0}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AccountGroupSection({
+  group,
+  expanded,
+  onToggle,
+  showDivider,
+}: {
+  group: GroupedAccountSection;
+  expanded: boolean;
+  onToggle: () => void;
+  showDivider: boolean;
+}) {
+  const hiddenCount = Math.max(0, group.accounts.length - ACCOUNTS_PREVIEW_LIMIT);
+  const visible = expanded
+    ? group.accounts
+    : group.accounts.slice(0, ACCOUNTS_PREVIEW_LIMIT);
+
+  return (
+    <section
+      className={`flex flex-col gap-2 ${showDivider ? "border-t border-hairline pt-3" : ""}`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-label-caps text-faint">
+          {group.label}
+        </span>
+        <span
+          className={`text-mono-amount-sm font-semibold ${
+            group.key === "creditLoans" ? "text-danger" : "text-body"
+          }`}
+        >
+          {usdCompact.format(group.subtotal)}
+        </span>
+      </div>
+      {visible.map((account) => (
+        <GroupedAccountRow
+          key={account._id}
+          account={account}
+          dotClass={group.dotClass}
+        />
+      ))}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="pt-0.5 text-left text-list-secondary font-semibold text-accent"
+        >
+          {expanded ? "Show less" : `Show ${hiddenCount} more`}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function GroupedAccountRow({
+  account,
+  dotClass,
+}: {
+  account: Account;
+  dotClass: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`}
+        aria-hidden
+      />
+      <p className="min-w-0 flex-1 truncate text-list-secondary font-semibold text-ink">
+        {account.name}
+      </p>
+      <p className="text-mono-amount-sm shrink-0 font-semibold text-ink">
         {usdCompact.format(account.currentBalance)}
       </p>
     </div>
   );
+}
+
+type GroupedAccountSection = {
+  key: AccountGroupKey;
+  label: string;
+  dotClass: string;
+  subtotal: number;
+  accounts: Account[];
+};
+
+function groupAccounts(accounts: Account[]): GroupedAccountSection[] {
+  const byKey = new Map<AccountGroupKey, Account[]>(
+    ACCOUNT_GROUPS.map((g) => [g.key, []]),
+  );
+
+  for (const account of accounts) {
+    const group = ACCOUNT_GROUPS.find((g) => g.types.includes(account.type));
+    if (!group) continue;
+    byKey.get(group.key)?.push(account);
+  }
+
+  return ACCOUNT_GROUPS.map((group) => {
+    const list = (byKey.get(group.key) ?? []).sort(
+      (a, b) => b.currentBalance - a.currentBalance,
+    );
+    const subtotal = list.reduce(
+      (sum, a) =>
+        group.key === "creditLoans"
+          ? sum + a.currentBalance
+          : sum + a.currentBalance,
+      0,
+    );
+    return {
+      key: group.key,
+      label: group.label,
+      dotClass: group.dotClass,
+      subtotal,
+      accounts: list,
+    };
+  }).filter((g) => g.accounts.length > 0);
 }
 
 function formatMonthShort(month: string) {

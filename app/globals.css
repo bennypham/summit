@@ -26,6 +26,8 @@
   --color-grape: #8a63e8;
   --color-bubblegum: #f25c8a;
   --color-lemon: #f4c430;
+  --color-gold: #a8860b;
+  --color-teal: #0e8a94;
 
   /* Color — tints */
   --color-tint-green: #e4f6ea;
@@ -34,6 +36,8 @@
   --color-tint-selected: #f5f8fd;
   --color-tint-grape: #eee7fb;
   --color-tint-pink: #fce4ec;
+  --color-tint-lemon: #fbf4d9;
+  --color-tint-teal: #dcf1f4;
 
   /* Color — dark (for sidebar / ink surfaces) */
   --color-dark-bg: #15171c;
@@ -68,7 +72,7 @@
   --tracking-caps: 0.1em;
 
   /* Typography — line height */
-  --leading-caption: 15px;
+  --leading-caption: 16px;
   --leading-body: 20px;
   --leading-heading: 25px;
   --leading-title: 37px;
@@ -129,12 +133,16 @@
   --color-grape: var(--color-grape);
   --color-bubblegum: var(--color-bubblegum);
   --color-lemon: var(--color-lemon);
+  --color-gold: var(--color-gold);
+  --color-teal: var(--color-teal);
   --color-tint-green: var(--color-tint-green);
   --color-tint-amber: var(--color-tint-amber);
   --color-tint-blue: var(--color-tint-blue);
   --color-tint-selected: var(--color-tint-selected);
   --color-tint-grape: var(--color-tint-grape);
   --color-tint-pink: var(--color-tint-pink);
+  --color-tint-lemon: var(--color-tint-lemon);
+  --color-tint-teal: var(--color-tint-teal);
   --color-dark-bg: var(--color-dark-bg);
   --color-dark-surface: var(--color-dark-surface);
   --color-dark-border: var(--color-dark-border);
@@ -239,6 +247,50 @@ body {
 
 .tracking-caps {
   letter-spacing: var(--tracking-caps);
+}
+
+/* Dashboard UI — maps Paper components to the foundation scale */
+.text-section-title {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: var(--tracking-heading);
+}
+
+.text-label-caps {
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.text-list-primary {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--font-weight-bold);
+}
+
+.text-list-secondary {
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.text-mono-amount {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.text-mono-amount-sm {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 .shadow-accent {
@@ -360,10 +412,40 @@ body {
   border-color: var(--color-ink);
 }
 
+.chip-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-field);
+  padding: 8px 15px;
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-caption);
+  color: var(--color-body);
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+.chip-category:hover {
+  border-color: rgb(46 123 246 / 0.4);
+}
+.chip-category-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-surface);
+  font-weight: var(--font-weight-bold);
+}
+.chip-category-active:hover {
+  border-color: var(--color-accent);
+}
+
 .search-pill-field {
-  width: 260px;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -379,11 +461,11 @@ body {
 
 .search-pill-input {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 auto;
   border: none;
   background: transparent;
   padding: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: var(--font-weight-medium);
   line-height: 18px;
   color: var(--color-ink);
@@ -400,13 +482,33 @@ body {
   appearance: none;
 }
 
+/* Paper · Feed Scrolled — floating sticky date pill */
+.sticky-date-pill {
+  display: flex;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-ink);
+  padding-inline: 14px;
+  box-shadow: rgb(23 23 26 / 0.18) 0 4px 12px;
+}
+.sticky-date-pill-label {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 14px;
+  letter-spacing: 0.08em;
+  color: var(--color-surface);
+  white-space: nowrap;
+}
+
 .search-pill {
   width: 100%;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: var(--font-weight-medium);
   line-height: 18px;
   color: var(--color-ink);

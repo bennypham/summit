@@ -12,7 +12,6 @@ export type ActivityIconKind =
   | "phone"
   | "insurance"
   | "health"
-  | "fuel"
   | "transport"
   | "coffee"
   | "dining"
@@ -20,10 +19,8 @@ export type ActivityIconKind =
   | "entertainment"
   | "travel"
   | "fitness"
-  | "gifts"
   | "pets"
   | "subscriptions"
-  | "education"
   | "fees"
   | "cash"
   | "uncategorized";
@@ -33,18 +30,20 @@ type ActivityIconPairing = {
   stroke: string;
 };
 
-type ActivityIconSize = "sm" | "md" | "lg";
+type ActivityIconSize = "sm" | "md" | "lg" | "detail";
 
 const SIZE: Record<ActivityIconSize, { box: string; glyph: number }> = {
   sm: { box: "h-8 w-8", glyph: 16 },
   md: { box: "h-[42px] w-[42px]", glyph: 18 },
   lg: { box: "h-14 w-14", glyph: 22 },
+  detail: { box: "h-14 w-14", glyph: 24 },
 };
 
+/** Color pairings from Paper · 09 Activity Icons */
 const PAIRINGS: Record<ActivityIconKind, ActivityIconPairing> = {
   income: { tint: "bg-tint-green", stroke: "text-success" },
   refund: { tint: "bg-tint-green", stroke: "text-success" },
-  transfer: { tint: "bg-tint-green", stroke: "text-success" },
+  transfer: { tint: "bg-wash", stroke: "text-muted" },
   investments: { tint: "bg-tint-blue", stroke: "text-accent" },
   savings: { tint: "bg-tint-blue", stroke: "text-accent" },
   groceries: { tint: "bg-tint-blue", stroke: "text-accent" },
@@ -52,19 +51,16 @@ const PAIRINGS: Record<ActivityIconKind, ActivityIconPairing> = {
   utilities: { tint: "bg-tint-amber", stroke: "text-warning" },
   phone: { tint: "bg-tint-blue", stroke: "text-accent" },
   insurance: { tint: "bg-wash", stroke: "text-muted" },
-  health: { tint: "bg-tint-pink", stroke: "text-danger" },
-  fuel: { tint: "bg-tint-grape", stroke: "text-grape" },
+  health: { tint: "bg-tint-pink", stroke: "text-bubblegum" },
   transport: { tint: "bg-tint-grape", stroke: "text-grape" },
   coffee: { tint: "bg-tint-amber", stroke: "text-warning" },
   dining: { tint: "bg-tint-pink", stroke: "text-bubblegum" },
-  shopping: { tint: "bg-tint-pink", stroke: "text-bubblegum" },
+  shopping: { tint: "bg-tint-teal", stroke: "text-teal" },
   entertainment: { tint: "bg-tint-grape", stroke: "text-grape" },
   travel: { tint: "bg-tint-blue", stroke: "text-accent" },
-  fitness: { tint: "bg-tint-green", stroke: "text-grass" },
-  gifts: { tint: "bg-tint-pink", stroke: "text-bubblegum" },
-  pets: { tint: "bg-tint-amber", stroke: "text-warning" },
-  subscriptions: { tint: "bg-tint-green", stroke: "text-grass" },
-  education: { tint: "bg-tint-grape", stroke: "text-grape" },
+  fitness: { tint: "bg-tint-lemon", stroke: "text-gold" },
+  pets: { tint: "bg-tint-green", stroke: "text-success" },
+  subscriptions: { tint: "bg-tint-lemon", stroke: "text-gold" },
   fees: { tint: "bg-wash", stroke: "text-muted" },
   cash: { tint: "bg-tint-green", stroke: "text-success" },
   uncategorized: { tint: "bg-wash", stroke: "text-muted" },
@@ -96,13 +92,17 @@ const MERCHANT_RULES: { pattern: RegExp; kind: ActivityIconKind }[] = [
     kind: "health",
   },
   {
+    pattern: /\b(mint mobile|google fi phone|visible wireless|phone bill)\b/i,
+    kind: "phone",
+  },
+  {
     pattern:
       /\b(pge|pg&e|electric|water bill|utility|comcast|xfinity|verizon|at&t|t-mobile|internet bill)\b/i,
     kind: "utilities",
   },
   {
-    pattern: /\b(shell|chevron|exxon|mobil|arco|bp\b|gas station|fuel)\b/i,
-    kind: "fuel",
+    pattern: /\b(state farm|geico|progressive|allstate|insurance premium)\b/i,
+    kind: "insurance",
   },
   {
     pattern:
@@ -114,8 +114,42 @@ const MERCHANT_RULES: { pattern: RegExp; kind: ActivityIconKind }[] = [
     kind: "groceries",
   },
   {
-    pattern: /\b(lyft|uber\b|bart|muni|metro rail|caltrain)\b/i,
+    pattern:
+      /\b(lyft|uber\b|bart|muni|metro rail|caltrain|shell|chevron|exxon|mobil|arco|bp\b|gas station|fuel)\b/i,
     kind: "transport",
+  },
+  {
+    pattern:
+      /\b(united airlines|delta air|southwest|jetblue|airbnb|marriott|hilton|hotel)\b/i,
+    kind: "travel",
+  },
+  {
+    pattern: /\b(equinox|planet fitness|peloton|gym membership|fitness)\b/i,
+    kind: "fitness",
+  },
+  {
+    pattern: /\b(etsy|gift shop|hallmark|flower shop|nordstrom|sparkfun)\b/i,
+    kind: "shopping",
+  },
+  {
+    pattern: /\b(chewy|petco|petsmart|veterinary|pet supplies)\b/i,
+    kind: "pets",
+  },
+  {
+    pattern: /\b(service fee|overdraft fee|atm fee|bank fee|wire fee)\b/i,
+    kind: "fees",
+  },
+  {
+    pattern: /\b(atm cash withdrawal|cash withdrawal)\b/i,
+    kind: "cash",
+  },
+  {
+    pattern: /\b(vanguard|fidelity|schwab|robinhood|etrade|brokerage)\b/i,
+    kind: "investments",
+  },
+  {
+    pattern: /\b(transfer to savings|high-yield savings|savings deposit)\b/i,
+    kind: "savings",
   },
 ];
 
@@ -130,6 +164,22 @@ function isRefund(description: string) {
   return REFUND_PATTERN.test(description);
 }
 
+export function categoryIconKind(categoryName: string): ActivityIconKind {
+  return CATEGORY_ICONS[categoryName] ?? "uncategorized";
+}
+
+export function ActivityIconGlyph({
+  kind,
+  size = 13,
+  className = "",
+}: {
+  kind: ActivityIconKind;
+  size?: number;
+  className?: string;
+}) {
+  return <Glyph kind={kind} size={size} className={className} />;
+}
+
 export function resolveActivityIcon(
   transaction: Pick<
     ActivityTransaction,
@@ -139,10 +189,7 @@ export function resolveActivityIcon(
   if (transaction.isTransfer) return "transfer";
 
   const inflow = transaction.amount < 0;
-  if (inflow) {
-    if (isRefund(transaction.description)) return "refund";
-    return "income";
-  }
+  if (inflow && isRefund(transaction.description)) return "refund";
 
   const merchant = matchMerchantIcon(transaction.description);
   if (merchant) return merchant;
@@ -151,6 +198,8 @@ export function resolveActivityIcon(
     const fromCategory = CATEGORY_ICONS[transaction.categoryName];
     if (fromCategory) return fromCategory;
   }
+
+  if (inflow) return "income";
 
   return "uncategorized";
 }
@@ -204,7 +253,7 @@ function Glyph({ kind, size, className }: GlyphProps) {
       return (
         <svg {...props}>
           <line x1="12" y1="4" x2="12" y2="14" />
-          <polyline points="7 10 12 15 17 10" />
+          <path d="M7 10l5 5 5-5" />
           <line x1="5" y1="20" x2="19" y2="20" />
         </svg>
       );
@@ -258,7 +307,7 @@ function Glyph({ kind, size, className }: GlyphProps) {
     case "utilities":
       return (
         <svg {...props}>
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />
         </svg>
       );
     case "phone":
@@ -281,21 +330,14 @@ function Glyph({ kind, size, className }: GlyphProps) {
           <path d="M12 20s-7-4.4-7-9.8A4.2 4.2 0 0 1 12 7a4.2 4.2 0 0 1 7 3.2C19 15.6 12 20 12 20z" />
         </svg>
       );
-    case "fuel":
-      return (
-        <svg {...props}>
-          <path d="M5 21V5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v16" />
-          <path d="M3 21h13" />
-          <path d="M14 9h3l3 3v5.5a1.5 1.5 0 0 1-3 0V13" />
-        </svg>
-      );
     case "transport":
       return (
         <svg {...props}>
-          <path d="M4 16v-3l2.2-5.5A1.5 1.5 0 0 1 7.6 6.5h8.8a1.5 1.5 0 0 1 1.4 1L20 13v3" />
-          <line x1="4" y1="13" x2="20" y2="13" />
-          <circle cx="7.5" cy="17" r="1.5" />
-          <circle cx="16.5" cy="17" r="1.5" />
+          <path d="M5 17H4a1.5 1.5 0 0 1-1.5-1.5V8.5A1.5 1.5 0 0 1 4 7h9.3c.5 0 .9.2 1.2.6l2.5 2.9 3.4.9c.6.2 1.1.8 1.1 1.4v2.7A1.5 1.5 0 0 1 20 17h-1" />
+          <path d="M9 17h6" />
+          <circle cx="7" cy="17" r="2" />
+          <circle cx="17" cy="17" r="2" />
+          <path d="M4 4h9M5.5 7V4M11.5 7V4" />
         </svg>
       );
     case "coffee":
@@ -334,8 +376,7 @@ function Glyph({ kind, size, className }: GlyphProps) {
     case "travel":
       return (
         <svg {...props}>
-          <path d="M21 3L3 11l7 2 2 7 9-17z" />
-          <path d="M21 3L10 13" />
+          <path d="M12 2.5c.8 0 1.3.6 1.3 1.4V9l7.2 4.3v2.2l-7.2-2.2v4.4l1.9 1.6v1.4L12 20l-3.2.7v-1.4l1.9-1.6v-4.4l-7.2 2.2v-2.2L10.7 9V3.9c0-.8.5-1.4 1.3-1.4z" />
         </svg>
       );
     case "fitness":
@@ -346,15 +387,6 @@ function Glyph({ kind, size, className }: GlyphProps) {
           <line x1="3.5" y1="10" x2="3.5" y2="14" />
           <line x1="20.5" y1="10" x2="20.5" y2="14" />
           <line x1="7" y1="12" x2="17" y2="12" />
-        </svg>
-      );
-    case "gifts":
-      return (
-        <svg {...props}>
-          <rect x="4" y="10" width="16" height="10" rx="2" />
-          <line x1="12" y1="10" x2="12" y2="20" />
-          <path d="M12 10c-3 0-4.5-1.5-3.8-3.4C8.8 5 11 5.4 12 10z" />
-          <path d="M12 10c3 0 4.5-1.5 3.8-3.4C15.2 5 13 5.4 12 10z" />
         </svg>
       );
     case "pets":
@@ -371,13 +403,6 @@ function Glyph({ kind, size, className }: GlyphProps) {
         <svg {...props}>
           <path d="M20 12a8 8 0 1 1-2.4-5.7" />
           <path d="M20 3v4h-4" />
-        </svg>
-      );
-    case "education":
-      return (
-        <svg {...props}>
-          <path d="M2 9l10-5 10 5-10 5L2 9z" />
-          <path d="M6 11.5V16c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.5" />
         </svg>
       );
     case "fees":

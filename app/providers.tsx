@@ -11,5 +11,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+  return (
+    <ConvexProvider client={convex}>
+      <div className="flex h-full min-h-0 flex-1 flex-col">{children}</div>
+    </ConvexProvider>
+  );
 }

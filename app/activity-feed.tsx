@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import type { ActivityTransaction } from "./activity-workspace";
 import { ActivityTransactionIcon } from "./activity-icons";
@@ -10,6 +11,13 @@ const usd = new Intl.NumberFormat("en-US", {
 });
 
 export type ActivityFilter = "all" | "income" | "spending" | "transfers";
+
+type DayGroup = {
+  dateKey: string;
+  label: string;
+  totalSpend: number;
+  items: ActivityTransaction[];
+};
 
 type ActivityFeedProps = {
   transactions: ActivityTransaction[];
@@ -35,17 +43,83 @@ export function ActivityFeed({
   onSelect,
   onClearFilters,
 }: ActivityFeedProps) {
-  const groups = groupByDate(transactions);
+  const groups = useMemo(() => groupByDate(transactions), [transactions]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const headerRefs = useRef(new Map<string, HTMLElement>());
+  const [stickyLabel, setStickyLabel] = useState<string | null>(null);
+
+  // Reset list scroll when the visible set changes (filter / search).
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    scroller.scrollTop = 0;
+    setStickyLabel(null);
+  }, [filter, transactions]);
+
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller || groups.length === 0) {
+      setStickyLabel(null);
+      return;
+    }
+
+    function updateSticky() {
+      const root = scrollRef.current;
+      if (!root) return;
+
+      const rootRect = root.getBoundingClientRect();
+      let active: DayGroup | null = null;
+
+      for (const group of groups) {
+        const header = headerRefs.current.get(group.dateKey);
+        if (!header) continue;
+        // Active day = last header whose top has reached/passed the scroller top.
+        if (header.getBoundingClientRect().top <= rootRect.top + 1) {
+          active = group;
+        } else {
+          break;
+        }
+      }
+
+      if (!active) {
+        setStickyLabel(null);
+        return;
+      }
+
+      const header = headerRefs.current.get(active.dateKey);
+      if (!header) {
+        setStickyLabel(null);
+        return;
+      }
+
+      const headerRect = header.getBoundingClientRect();
+      const fullyVisible =
+        headerRect.top >= rootRect.top - 0.5 &&
+        headerRect.bottom <= rootRect.bottom + 0.5;
+
+      setStickyLabel(fullyVisible ? null : active.label);
+    }
+
+    updateSticky();
+    scroller.addEventListener("scroll", updateSticky, { passive: true });
+    const resizeObserver = new ResizeObserver(updateSticky);
+    resizeObserver.observe(scroller);
+
+    return () => {
+      scroller.removeEventListener("scroll", updateSticky);
+      resizeObserver.disconnect();
+    };
+  }, [groups]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-surface p-4">
-      <div className="flex items-center justify-between px-1 pb-3.5">
+    <div className="relative flex min-h-0 flex-1 flex-col rounded-lg bg-surface p-4">
+      <div className="flex shrink-0 items-center justify-between px-1 pb-3.5">
         <h2 className="text-heading font-extrabold tracking-heading text-ink">
           Activity
         </h2>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 px-1 pb-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-1 pb-4">
         {FILTERS.map((f) => {
           const active = filter === f.id;
           return (
@@ -62,7 +136,7 @@ export function ActivityFeed({
       </div>
 
       {groups.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-wash text-2xl text-muted">
             ⌕
           </div>
@@ -75,34 +149,62 @@ export function ActivityFeed({
           </button>
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {groups.map((group) => (
-            <section key={group.dateKey} className="pb-2">
-              <div className="flex items-center gap-3 px-1 pb-2 pt-3.5 first:pt-0">
-                <span className="text-[12px] font-bold tracking-caps text-faint">
-                  {group.label}
-                </span>
-                <div className="h-px flex-1 bg-hairline" />
-                {group.totalSpend > 0 && (
-                  <span className="font-mono text-[12px] font-medium text-faint tabular-nums">
-                    −{usd.format(group.totalSpend)}
+        <div className="relative min-h-0 flex-1">
+          {stickyLabel && (
+            <div
+              className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2"
+              aria-hidden
+            >
+              <StickyDatePill label={stickyLabel} />
+            </div>
+          )}
+
+          <div ref={scrollRef} className="h-full overflow-y-auto">
+            {groups.map((group, index) => (
+              <section key={group.dateKey} className="pb-2">
+                <div
+                  ref={(el) => {
+                    if (el) headerRefs.current.set(group.dateKey, el);
+                    else headerRefs.current.delete(group.dateKey);
+                  }}
+                  data-date-key={group.dateKey}
+                  className={`flex items-center gap-3 px-1 pb-2 pt-3.5 ${
+                    index === 0 ? "pt-0" : ""
+                  }`}
+                >
+                  <span className="text-label-caps text-faint">
+                    {group.label}
                   </span>
-                )}
-              </div>
-              <ul>
-                {group.items.map((t) => (
-                  <ActivityRow
-                    key={t.id}
-                    transaction={t}
-                    selected={t.id === selectedId}
-                    onSelect={() => onSelect(t.id)}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
+                  <div className="h-px flex-1 bg-hairline" />
+                  {group.totalSpend > 0 && (
+                    <span className="text-mono-amount-sm text-faint">
+                      −{usd.format(group.totalSpend)}
+                    </span>
+                  )}
+                </div>
+                <ul>
+                  {group.items.map((t) => (
+                    <ActivityRow
+                      key={t.id}
+                      transaction={t}
+                      selected={t.id === selectedId}
+                      onSelect={() => onSelect(t.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StickyDatePill({ label }: { label: string }) {
+  return (
+    <div className="sticky-date-pill">
+      <span className="sticky-date-pill-label">{label}</span>
     </div>
   );
 }
@@ -129,16 +231,16 @@ function ActivityRow({
       >
         <ActivityTransactionIcon transaction={t} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[16px] font-bold leading-5 text-ink">
+          <p className="truncate text-list-primary text-ink">
             {t.description}
           </p>
-          <p className="truncate text-caption font-medium text-muted">
+          <p className="truncate text-list-secondary text-muted">
             {formatMeta(t)}
           </p>
         </div>
         <div className="shrink-0 text-right">
           <p
-            className={`font-mono text-[15px] font-semibold tabular-nums ${
+            className={`text-mono-amount ${
               income ? "text-success" : "text-ink"
             }`}
           >
@@ -146,7 +248,7 @@ function ActivityRow({
               ? `+${usd.format(-t.amount)}`
               : `−${usd.format(t.amount)}`}
           </p>
-          <p className="text-[12px] font-medium text-faint">
+          <p className="text-list-secondary text-faint">
             {t.pending ? "Pending" : formatRowDate(t.date)}
           </p>
         </div>
@@ -171,7 +273,7 @@ function formatRowDate(dateKey: string) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function groupByDate(transactions: ActivityTransaction[]) {
+function groupByDate(transactions: ActivityTransaction[]): DayGroup[] {
   const map = new Map<string, ActivityTransaction[]>();
   for (const t of transactions) {
     const key = t.date;
@@ -219,4 +321,3 @@ function formatDateKey(d: Date) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-

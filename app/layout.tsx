@@ -28,7 +28,7 @@ export default function RootLayout({
       lang="en"
       className={`${hankenGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans">
+      <body className="flex h-full min-h-0 flex-col overflow-hidden font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>
