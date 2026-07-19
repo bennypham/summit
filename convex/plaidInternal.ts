@@ -137,7 +137,9 @@ async function upsertTransaction(
     // Pending → posted (or any modification): patch in place.
     await ctx.db.patch(existing._id, {
       date: txn.date,
-      description: txn.description,
+      ...(existing.descriptionOverridden
+        ? {}
+        : { description: txn.description }),
       amount: txn.amount,
       pending: txn.pending,
       isTransfer: txn.isTransfer,
@@ -155,6 +157,7 @@ async function upsertTransaction(
     pending: txn.pending,
     categoryId,
     categoryOverridden: false,
+    descriptionOverridden: false,
     isTransfer: txn.isTransfer,
   });
 }

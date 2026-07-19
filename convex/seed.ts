@@ -1,4 +1,6 @@
 import { internalMutation } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
+import { ensureDefaultCategories } from "./lib/categories";
 
 // Dev utility: wipe auth state to redo first-run passkey setup.
 // Run with: npx convex run seed:resetAuth
@@ -15,7 +17,8 @@ export const resetAuth = internalMutation({
   },
 });
 
-// Clears all Plaid-linked data. Run with: npx convex run seed:clearFinanceData
+// Clears Plaid-linked data + categories/budgets so re-seed stays clean.
+// Run with: npx convex run seed:clearFinanceData
 export const clearFinanceData = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -31,6 +34,15 @@ export const clearFinanceData = internalMutation({
     for (const i of await ctx.db.query("items").collect()) {
       await ctx.db.delete(i._id);
     }
+    for (const b of await ctx.db.query("budgets").collect()) {
+      await ctx.db.delete(b._id);
+    }
+    for (const m of await ctx.db.query("plaidCategoryMappings").collect()) {
+      await ctx.db.delete(m._id);
+    }
+    for (const c of await ctx.db.query("categories").collect()) {
+      await ctx.db.delete(c._id);
+    }
     return "Finance data cleared";
   },
 });
@@ -42,6 +54,8 @@ export const run = internalMutation({
   handler: async (ctx) => {
     const existing = await ctx.db.query("items").first();
     if (existing) throw new Error("Already seeded — clear tables first");
+
+    await ensureDefaultCategories(ctx);
 
     const itemId = await ctx.db.insert("items", {
       plaidItemId: "seed-item-1",
@@ -89,18 +103,35 @@ export const run = internalMutation({
       isBalanceOnly: true,
     });
 
-    const groceries = await ctx.db.insert("categories", { name: "Groceries" });
-    const dining = await ctx.db.insert("categories", { name: "Dining" });
-    const rent = await ctx.db.insert("categories", { name: "Rent" });
-    await ctx.db.insert("budgets", { categoryId: groceries, monthlyLimit: 500 });
-    await ctx.db.insert("budgets", { categoryId: dining, monthlyLimit: 200 });
+    const groceries = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Groceries"))
+      .first();
+    const dining = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Dining"))
+      .first();
+    const rent = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Rent"))
+      .first();
+    const transportation = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Transportation"))
+      .first();
+    if (!groceries || !dining || !rent || !transportation) {
+      throw new Error("Default categories missing after ensureDefaultCategories");
+    }
 
     const month = new Date().toISOString().slice(0, 8); // "YYYY-MM-"
     const txns = [
-      { accountId: checking, date: `${month}01`, description: "Apartment Rent", amount: 1850, categoryId: rent },
-      { accountId: checking, date: `${month}03`, description: "Trader Joe's", amount: 84.12, categoryId: groceries },
-      { accountId: credit, date: `${month}04`, description: "Chipotle", amount: 13.45, categoryId: dining },
-      { accountId: credit, date: `${month}05`, description: "Whole Foods", amount: 56.9, categoryId: groceries },
+      { accountId: checking, date: `${month}01`, description: "Apartment Rent", amount: 1850, categoryId: rent._id },
+      { accountId: checking, date: `${month}03`, description: "Trader Joe's", amount: 84.12, categoryId: groceries._id },
+      { accountId: credit, date: `${month}04`, description: "Chipotle", amount: 13.45, categoryId: dining._id },
+      { accountId: credit, date: `${month}05`, description: "Whole Foods", amount: 56.9, categoryId: groceries._id },
+      { accountId: credit, date: `${month}07`, description: "Lyft", amount: 22.5, categoryId: transportation._id },
+      { accountId: checking, date: `${month}08`, description: "Shell Gas", amount: 48.75, categoryId: transportation._id },
+      { accountId: credit, date: `${month}09`, description: "Safeway", amount: 67.34, categoryId: groceries._id },
       { accountId: checking, date: `${month}06`, description: "Paycheck", amount: -3200, categoryId: undefined },
     ];
     for (const [i, t] of txns.entries()) {
@@ -113,6 +144,7 @@ export const run = internalMutation({
         pending: false,
         categoryId: t.categoryId,
         categoryOverridden: false,
+        descriptionOverridden: false,
         isTransfer: false,
       });
     }
@@ -126,6 +158,7 @@ export const run = internalMutation({
       pending: false,
       categoryId: undefined,
       categoryOverridden: false,
+      descriptionOverridden: false,
       isTransfer: true,
     });
     await ctx.db.insert("transactions", {
@@ -137,9 +170,561 @@ export const run = internalMutation({
       pending: false,
       categoryId: undefined,
       categoryOverridden: false,
+      descriptionOverridden: false,
       isTransfer: true,
     });
 
     return "Seeded";
+  },
+});
+
+/** Add MTD grocery + transportation activity on an existing Plaid Sandbox link. */
+export const enrichBudgetActivity = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await ensureDefaultCategories(ctx);
+
+    const groceries = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Groceries"))
+      .first();
+    const transportation = await ctx.db
+      .query("categories")
+      .withIndex("by_name", (q) => q.eq("name", "Transportation"))
+      .first();
+    if (!groceries || !transportation) {
+      throw new Error("Groceries or Transportation category missing");
+    }
+
+    const accounts = await ctx.db.query("accounts").collect();
+    const checking =
+      accounts.find((a) => a.type === "checking" && !a.isBalanceOnly) ??
+      accounts.find((a) => !a.isBalanceOnly);
+    const credit = accounts.find((a) => a.type === "credit");
+    if (!checking) throw new Error("No transaction account found");
+
+    const month = new Date().toISOString().slice(0, 8);
+    const demoTxns: {
+      id: string;
+      accountId: typeof checking._id;
+      date: string;
+      description: string;
+      amount: number;
+      categoryId: typeof groceries._id;
+    }[] = [
+      {
+        id: "demo-grocery-whole-foods",
+        accountId: checking._id,
+        date: `${month}02`,
+        description: "Whole Foods Market",
+        amount: 82.16,
+        categoryId: groceries._id,
+      },
+      {
+        id: "demo-grocery-trader-joes",
+        accountId: checking._id,
+        date: `${month}05`,
+        description: "Trader Joe's",
+        amount: 54.38,
+        categoryId: groceries._id,
+      },
+      {
+        id: "demo-grocery-costco",
+        accountId: credit?._id ?? checking._id,
+        date: `${month}09`,
+        description: "Costco",
+        amount: 126.44,
+        categoryId: groceries._id,
+      },
+      {
+        id: "demo-transport-lyft",
+        accountId: credit?._id ?? checking._id,
+        date: `${month}04`,
+        description: "Lyft",
+        amount: 18.75,
+        categoryId: transportation._id,
+      },
+      {
+        id: "demo-transport-shell",
+        accountId: checking._id,
+        date: `${month}06`,
+        description: "Shell Gas",
+        amount: 52.4,
+        categoryId: transportation._id,
+      },
+      {
+        id: "demo-transport-bart",
+        accountId: checking._id,
+        date: `${month}11`,
+        description: "BART Clipper",
+        amount: 12.5,
+        categoryId: transportation._id,
+      },
+    ];
+
+    let inserted = 0;
+    for (const t of demoTxns) {
+      const existing = await ctx.db
+        .query("transactions")
+        .withIndex("by_plaid_transaction_id", (q) =>
+          q.eq("plaidTransactionId", t.id),
+        )
+        .first();
+      if (existing) continue;
+
+      await ctx.db.insert("transactions", {
+        accountId: t.accountId,
+        plaidTransactionId: t.id,
+        date: t.date,
+        description: t.description,
+        amount: t.amount,
+        pending: false,
+        categoryId: t.categoryId,
+        categoryOverridden: true,
+        descriptionOverridden: false,
+        isTransfer: false,
+      });
+      inserted++;
+    }
+
+    return { inserted, skipped: demoTxns.length - inserted };
+  },
+});
+
+function netWorthFromAccounts(
+  accounts: { type: string; currentBalance: number }[],
+) {
+  return accounts.reduce((sum, a) => {
+    if (a.type === "credit" || a.type === "loan") return sum - a.currentBalance;
+    return sum + a.currentBalance;
+  }, 0);
+}
+
+/** Idempotent demo transactions — one row per activity icon kind. */
+export const seedActivityIconShowcase = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await ensureDefaultCategories(ctx);
+
+    const categories = await ctx.db.query("categories").collect();
+    const categoryByName = new Map(categories.map((c) => [c.name, c._id]));
+
+    const accounts = await ctx.db.query("accounts").collect();
+    const checking =
+      accounts.find((a) => a.type === "checking" && !a.isBalanceOnly) ??
+      accounts.find((a) => !a.isBalanceOnly);
+    const credit = accounts.find((a) => a.type === "credit" && !a.isBalanceOnly);
+    const savings = accounts.find((a) => a.type === "savings");
+    if (!checking) throw new Error("No transaction account found");
+
+    const spendAccount = credit?._id ?? checking._id;
+    const month = new Date().toISOString().slice(0, 8);
+
+    type DemoTxn = {
+      id: string;
+      accountId: Id<"accounts">;
+      date: string;
+      description: string;
+      amount: number;
+      categoryId?: Id<"categories">;
+      isTransfer?: boolean;
+    };
+
+    const demoTxns: DemoTxn[] = [
+      {
+        id: "demo-icon-income",
+        accountId: checking._id,
+        date: `${month}01`,
+        description: "GUSTO PAYROLL DEPOSIT",
+        amount: -4200,
+      },
+      {
+        id: "demo-icon-refund",
+        accountId: spendAccount,
+        date: `${month}02`,
+        description: "Target Refund",
+        amount: -42.5,
+      },
+      {
+        id: "demo-icon-groceries",
+        accountId: spendAccount,
+        date: `${month}03`,
+        description: "Safeway Grocery",
+        amount: 68.4,
+        categoryId: categoryByName.get("Groceries"),
+      },
+      {
+        id: "demo-icon-dining",
+        accountId: spendAccount,
+        date: `${month}03`,
+        description: "Local Bistro",
+        amount: 54.2,
+        categoryId: categoryByName.get("Dining"),
+      },
+      {
+        id: "demo-icon-rent",
+        accountId: checking._id,
+        date: `${month}01`,
+        description: "Apartment Rent",
+        amount: 2100,
+        categoryId: categoryByName.get("Rent"),
+      },
+      {
+        id: "demo-icon-transport",
+        accountId: spendAccount,
+        date: `${month}04`,
+        description: "Uber Trip Downtown",
+        amount: 19.75,
+        categoryId: categoryByName.get("Transportation"),
+      },
+      {
+        id: "demo-icon-subscriptions",
+        accountId: spendAccount,
+        date: `${month}05`,
+        description: "Netflix Subscription",
+        amount: 15.99,
+        categoryId: categoryByName.get("Subscriptions"),
+      },
+      {
+        id: "demo-icon-shopping",
+        accountId: spendAccount,
+        date: `${month}05`,
+        description: "Nordstrom",
+        amount: 129,
+        categoryId: categoryByName.get("Shopping"),
+      },
+      {
+        id: "demo-icon-entertainment",
+        accountId: spendAccount,
+        date: `${month}06`,
+        description: "AMC Theaters",
+        amount: 32.5,
+        categoryId: categoryByName.get("Entertainment"),
+      },
+      {
+        id: "demo-icon-uncategorized",
+        accountId: spendAccount,
+        date: `${month}06`,
+        description: "Misc Purchase",
+        amount: 12.99,
+      },
+      {
+        id: "demo-icon-coffee",
+        accountId: spendAccount,
+        date: `${month}07`,
+        description: "Blue Bottle Coffee",
+        amount: 6.75,
+      },
+      {
+        id: "demo-icon-health",
+        accountId: spendAccount,
+        date: `${month}07`,
+        description: "Kaiser Copay",
+        amount: 35,
+      },
+      {
+        id: "demo-icon-utilities",
+        accountId: checking._id,
+        date: `${month}08`,
+        description: "PG&E Electric Bill",
+        amount: 118.6,
+      },
+      {
+        id: "demo-icon-phone",
+        accountId: checking._id,
+        date: `${month}08`,
+        description: "Mint Mobile Phone Bill",
+        amount: 25,
+      },
+      {
+        id: "demo-icon-insurance",
+        accountId: checking._id,
+        date: `${month}09`,
+        description: "State Farm Insurance Premium",
+        amount: 142,
+      },
+      {
+        id: "demo-icon-transport-gas",
+        accountId: spendAccount,
+        date: `${month}09`,
+        description: "Chevron Gas Station",
+        amount: 58.2,
+        categoryId: categoryByName.get("Transportation"),
+      },
+      {
+        id: "demo-icon-travel",
+        accountId: spendAccount,
+        date: `${month}10`,
+        description: "United Airlines",
+        amount: 412,
+      },
+      {
+        id: "demo-icon-fitness",
+        accountId: spendAccount,
+        date: `${month}10`,
+        description: "Equinox Fitness",
+        amount: 89,
+      },
+      {
+        id: "demo-icon-pets",
+        accountId: spendAccount,
+        date: `${month}11`,
+        description: "Chewy Pet Supplies",
+        amount: 36.5,
+      },
+      {
+        id: "demo-icon-fees",
+        accountId: checking._id,
+        date: `${month}12`,
+        description: "Bank Service Fee",
+        amount: 12,
+      },
+      {
+        id: "demo-icon-cash",
+        accountId: checking._id,
+        date: `${month}13`,
+        description: "ATM Cash Withdrawal",
+        amount: 100,
+      },
+      {
+        id: "demo-icon-investments",
+        accountId: checking._id,
+        date: `${month}13`,
+        description: "Vanguard Brokerage Buy",
+        amount: 500,
+      },
+      {
+        id: "demo-icon-savings",
+        accountId: savings?._id ?? checking._id,
+        date: `${month}14`,
+        description: "Transfer to High-Yield Savings",
+        amount: 250,
+      },
+      {
+        id: "demo-icon-transfer-out",
+        accountId: checking._id,
+        date: `${month}14`,
+        description: "Transfer to Savings Account",
+        amount: 250,
+        isTransfer: true,
+      },
+      {
+        id: "demo-icon-transfer-in",
+        accountId: savings?._id ?? checking._id,
+        date: `${month}14`,
+        description: "Transfer from Checking",
+        amount: -250,
+        isTransfer: true,
+      },
+    ];
+
+    let inserted = 0;
+    for (const t of demoTxns) {
+      const existing = await ctx.db
+        .query("transactions")
+        .withIndex("by_plaid_transaction_id", (q) =>
+          q.eq("plaidTransactionId", t.id),
+        )
+        .first();
+      if (existing) continue;
+
+      await ctx.db.insert("transactions", {
+        accountId: t.accountId,
+        plaidTransactionId: t.id,
+        date: t.date,
+        description: t.description,
+        amount: t.amount,
+        pending: false,
+        categoryId: t.categoryId,
+        categoryOverridden: Boolean(t.categoryId),
+        descriptionOverridden: false,
+        isTransfer: t.isTransfer ?? false,
+      });
+      inserted++;
+    }
+
+    return { inserted, skipped: demoTxns.length - inserted };
+  },
+});
+
+const RETIRED_SHOWCASE_TXN_IDS = [
+  "demo-icon-gifts",
+  "demo-icon-education",
+] as const;
+
+/** Drop showcase rows for removed icon kinds (gifts, education). */
+export const removeRetiredIconShowcaseTxns = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let deleted = 0;
+    for (const id of RETIRED_SHOWCASE_TXN_IDS) {
+      const txn = await ctx.db
+        .query("transactions")
+        .withIndex("by_plaid_transaction_id", (q) =>
+          q.eq("plaidTransactionId", id),
+        )
+        .first();
+      if (!txn) continue;
+      await ctx.db.delete(txn._id);
+      deleted++;
+    }
+    return { deleted };
+  },
+});
+
+/**
+ * Sandbox loans/mortgages inflate liabilities — zero them for a readable demo net worth.
+ * Re-run after Plaid Refresh if balances revert.
+ */
+export const normalizeNetWorthForDemo = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const accounts = await ctx.db.query("accounts").collect();
+    let patched = 0;
+
+    for (const account of accounts) {
+      if (account.type === "loan") {
+        await ctx.db.patch(account._id, { currentBalance: 0, availableBalance: 0 });
+        patched++;
+        continue;
+      }
+      if (account.type === "credit") {
+        const capped = Math.min(account.currentBalance, 800);
+        if (account.currentBalance !== capped) {
+          await ctx.db.patch(account._id, { currentBalance: capped });
+          patched++;
+        }
+      }
+    }
+
+    let updated = await ctx.db.query("accounts").collect();
+    let total = netWorthFromAccounts(updated);
+
+    if (total <= 0) {
+      const checking =
+        updated.find((a) => a.type === "checking" && !a.isBalanceOnly) ??
+        updated.find((a) => !a.isBalanceOnly && a.type !== "credit" && a.type !== "loan");
+      if (checking) {
+        const bump = Math.abs(total) + 25_000;
+        await ctx.db.patch(checking._id, {
+          currentBalance: checking.currentBalance + bump,
+          availableBalance: (checking.availableBalance ?? checking.currentBalance) + bump,
+        });
+        patched++;
+      }
+    }
+
+    updated = await ctx.db.query("accounts").collect();
+
+    return { patched, estimatedNetWorth: netWorthFromAccounts(updated) };
+  },
+});
+
+/**
+ * Dense multi-month history so Activity Load More (page size 30) is exercisable.
+ * Idempotent via plaidTransactionId prefix `demo-history-`.
+ * Run with: npx convex run seed:seedActivityHistory
+ */
+export const seedActivityHistory = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await ensureDefaultCategories(ctx);
+
+    const categories = await ctx.db.query("categories").collect();
+    const categoryByName = new Map(categories.map((c) => [c.name, c._id]));
+
+    const accounts = await ctx.db.query("accounts").collect();
+    const checking =
+      accounts.find((a) => a.type === "checking" && !a.isBalanceOnly) ??
+      accounts.find((a) => !a.isBalanceOnly);
+    const credit = accounts.find((a) => a.type === "credit" && !a.isBalanceOnly);
+    if (!checking) throw new Error("No transaction account found");
+
+    const spendAccount = credit?._id ?? checking._id;
+    const merchants = [
+      { name: "Blue Bottle Coffee", amount: 6.5, category: "Dining" },
+      { name: "Whole Foods", amount: 84.2, category: "Groceries" },
+      { name: "Uber Trip", amount: 18.75, category: "Transportation" },
+      { name: "Shell Gas", amount: 52.1, category: "Transportation" },
+      { name: "Netflix", amount: 15.99, category: "Subscriptions" },
+      { name: "Spotify", amount: 11.99, category: "Subscriptions" },
+      { name: "Target", amount: 43.6, category: "Shopping" },
+      { name: "Amazon", amount: 67.4, category: "Shopping" },
+      { name: "Chipotle", amount: 14.85, category: "Dining" },
+      { name: "PG&E", amount: 64.99, category: "Rent" },
+      { name: "AMC Theatres", amount: 28.5, category: "Entertainment" },
+      { name: "CVS Pharmacy", amount: 22.3, category: "Shopping" },
+    ] as const;
+
+    const today = new Date();
+    let inserted = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < 90; i++) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      const y = day.getFullYear();
+      const m = String(day.getMonth() + 1).padStart(2, "0");
+      const d = String(day.getDate()).padStart(2, "0");
+      const date = `${y}-${m}-${d}`;
+      const merchant = merchants[i % merchants.length]!;
+      const plaidTransactionId = `demo-history-${date}-${i}`;
+
+      const existing = await ctx.db
+        .query("transactions")
+        .withIndex("by_plaid_transaction_id", (q) =>
+          q.eq("plaidTransactionId", plaidTransactionId),
+        )
+        .first();
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      const isPayday = i % 14 === 0;
+      const isTransfer = i % 23 === 0;
+
+      if (isTransfer) {
+        await ctx.db.insert("transactions", {
+          accountId: checking._id,
+          plaidTransactionId,
+          date,
+          description: "Transfer to Savings",
+          amount: 250,
+          pending: false,
+          categoryOverridden: false,
+          descriptionOverridden: false,
+          isTransfer: true,
+        });
+      } else if (isPayday) {
+        await ctx.db.insert("transactions", {
+          accountId: checking._id,
+          plaidTransactionId,
+          date,
+          description: "GUSTO PAYROLL DEPOSIT",
+          amount: -3200,
+          pending: false,
+          categoryOverridden: false,
+          descriptionOverridden: false,
+          isTransfer: false,
+        });
+      } else {
+        await ctx.db.insert("transactions", {
+          accountId: spendAccount,
+          plaidTransactionId,
+          date,
+          description: merchant.name,
+          amount: merchant.amount + (i % 7) * 1.15,
+          pending: false,
+          categoryId: categoryByName.get(merchant.category),
+          categoryOverridden: false,
+          descriptionOverridden: false,
+          isTransfer: false,
+        });
+      }
+      inserted++;
+    }
+
+    return { inserted, skipped };
   },
 });
